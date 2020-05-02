@@ -208,7 +208,7 @@ func (this *router) searchRoute(routes []*routeNamespace, r *http.Request) (rout
 }
 
 func (this *router) parseHost(r *http.Request) (subdomain string, err error) {
-	reg := regexp.MustCompile(`^\d+\.\d+\.\d+\.\d+$`)
+	reg := regexp.MustCompile(`^(?i:\d+\.\d+\.\d+\.\d+|localhost)(:\d+)?$`)
 	if reg.MatchString(r.Host) {
 		subdomain = "www"
 	} else {
