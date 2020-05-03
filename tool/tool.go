@@ -81,6 +81,33 @@ func Camel2Underline(camel string) string {
 	return string(under[:i])
 }
 
+func Underline2Camel(underline string) string {
+	var camel = make([]rune, len(underline))
+	var i = 0
+	for k, c := range underline {
+		if k == 0 {
+			if c >= 97 && c <= 122 {
+				camel[i] = c - 32
+			} else if c != '_' {
+				camel[i] = c
+			}
+			i++
+		} else if c >= 97 && c <= 122 {
+			if underline[k-1] == '_' {
+				camel[i] = c - 32
+			} else {
+				camel[i] = c
+			}
+			i++
+		} else if c != '_' {
+			camel[i] = c
+			i++
+		}
+	}
+
+	return string(camel[:i])
+}
+
 func deepFields(rtype reflect.Type) (fields []reflect.StructField) {
 	for i := 0; i < rtype.NumField(); i++ {
 		f := rtype.Field(i)
