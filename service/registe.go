@@ -61,8 +61,9 @@ func (tr *TableRegister) registe(service interface{}) *dbTable {
 				if len(pk) != 0 {
 					panic(fmt.Errorf("struct '%s' primary key must be only one", name))
 				}
-				if fv.Type().Kind() != reflect.Int64 {
-					panic(fmt.Errorf("struct '%s' primary key type must be int64", name))
+				k := fv.Type().Kind()
+				if k != reflect.Int64 && k != reflect.Uint64 {
+					panic(fmt.Errorf("struct '%s' primary key type must be int64 or uint64", name))
 				}
 				pk = dbTag
 				pf = field
