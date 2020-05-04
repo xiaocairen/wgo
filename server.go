@@ -130,10 +130,14 @@ func (this server) InjectRouteController(controller interface{}) {
 	}
 	dstSvc.Set(srcSvc)
 
-	var (
+	var srcTpl reflect.Value
+	if nil == this.app.htmlTemplate {
 		srcTpl = reflect.ValueOf(template.New("WgoTemplateEngine"))
-		dstTpl = ctlval.FieldByName("Tpl")
-	)
+	} else {
+		srcTpl = reflect.ValueOf(this.app.htmlTemplate)
+	}
+
+	var dstTpl = ctlval.FieldByName("Tpl")
 	if !dstTpl.CanSet() || !srcTpl.Type().AssignableTo(dstTpl.Type()) {
 		panic("field Tpl of " + ctlname + " can't be assign")
 	}

@@ -3,6 +3,7 @@ package wgo
 import (
 	"github.com/xiaocairen/wgo/config"
 	"github.com/xiaocairen/wgo/service"
+	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -23,6 +24,8 @@ type app struct {
 	routeCollection           RouteCollection
 	requestControllerInjector RequestControllerInjector
 	tableCollection           service.TableCollection
+	htmlTemplate              *template.Template
+	taskers                   []func()
 }
 
 func init() {
@@ -65,6 +68,7 @@ func (this *app) Run() {
 		mux := http.NewServeMux()
 		mux.Handle("/page/", http.StripPrefix("/page/", http.FileServer(http.Dir("web"))))
 		mux.Handle("/static/", http.FileServer(http.Dir("web")))
+		mux.Handle("/favicon.ico", http.FileServer(http.Dir("web")))
 		mux.Handle("/", s)
 
 		server := &http.Server{
@@ -104,6 +108,18 @@ func (this *app) SetTableCollection(tc service.TableCollection) {
 func (this *app) SetRequestControllerInjector(injector RequestControllerInjector) {
 	if nil == this.requestControllerInjector {
 		this.requestControllerInjector = injector
+	}
+}
+
+func (this *app) SetHtmlTemplate(tpl *template.Template) {
+	if nil == this.htmlTemplate {
+		this.htmlTemplate = tpl
+	}
+}
+
+func (this *app) RegisteTaskers(taskers []func()) {
+	if nil == this.taskers {
+		this.taskers = taskers
 	}
 }
 
