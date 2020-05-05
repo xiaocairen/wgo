@@ -319,14 +319,14 @@ func (ds *dbService) Load(with ...string) error {
 		return err
 	}
 
-	if len(with) > 0 {
-		ds.loadWith(with...)
-	}
-
-	return nil
+	return ds.loadWith(with...)
 }
 
 func (ds *dbService) loadWith(with ...string) error {
+	if len(with) == 0 {
+		return nil
+	}
+
 	rvalue := reflect.ValueOf(ds.target).Elem()
 	for _, sn := range with {
 		var field *reflect.StructField
@@ -337,7 +337,7 @@ func (ds *dbService) loadWith(with ...string) error {
 			}
 		}
 		if nil == field {
-			continue
+			return fmt.Errorf("unkown field '%s' in %s", sn, ds.table.structName)
 		}
 
 		var (
@@ -345,6 +345,12 @@ func (ds *dbService) loadWith(with ...string) error {
 			fkey   = field.Tag.Get(FKEY)
 			mfield *reflect.StructField
 		)
+		if "" == mkey {
+			return fmt.Errorf("not found mkey tag in field '%s' of %s", sn, ds.table.structName)
+		}
+		if "" == fkey {
+			return fmt.Errorf("not found fkey tag in field '%s' of %s", sn, ds.table.structName)
+		}
 		for _, f := range ds.table.structFields {
 			if mkey == f.Tag.Get(mdb.STRUCT_TAG) {
 				mfield = &f
@@ -352,7 +358,7 @@ func (ds *dbService) loadWith(with ...string) error {
 			}
 		}
 		if nil == mfield {
-			continue
+			return fmt.Errorf("not found mkey tag '%s' relate field of %s", mkey, ds.table.structName)
 		}
 
 		var (
@@ -362,7 +368,7 @@ func (ds *dbService) loadWith(with ...string) error {
 		if reflect.Ptr == kind {
 			target := ds.service.loadTableByName(field.Type.String())
 			if nil == target {
-				continue
+				return fmt.Errorf("not found relation table struct '%s'", field.Type.String())
 			}
 
 			out := reflect.New(field.Type.Elem()).Interface()
@@ -378,7 +384,7 @@ func (ds *dbService) loadWith(with ...string) error {
 		} else if reflect.Slice == kind {
 			target := ds.service.loadTableByName(field.Type.String()[2:])
 			if nil == target {
-				continue
+				return fmt.Errorf("not found relation table struct '%s'", field.Type.String()[2:])
 			}
 
 			all, err := ds.conn.Select(msql.Select{
@@ -387,10 +393,19 @@ func (ds *dbService) loadWith(with ...string) error {
 				Where:  msql.Where(fkey, "=", ivalue),
 			}).Query().ScanStructAll(target.target)
 			if err != nil {
+				fmt.Println(err)
 				return err
 			}
 
-			fillSlice(rvalue.FieldByName(field.Name), field.Type, all)
+			n := len(all)
+			if n > 0 {
+				s := reflect.MakeSlice(field.Type, n, n)
+				for i, iface := range all {
+					v := s.Index(i)
+					v.Set(reflect.ValueOf(iface))
+				}
+				rvalue.FieldByName(field.Name).Set(s)
+			}
 		}
 	}
 	return nil
@@ -478,17 +493,4 @@ func (ds *dbService) getFieldValues() (fieldValues map[string]interface{}, targe
 		}
 	}
 	return
-}
-
-func fillSlice(sliceValue reflect.Value, sliceType reflect.Type, all []interface{}) {
-	n := len(all)
-	if n > 0 {
-		s := reflect.MakeSlice(sliceType, n, n)
-		for i, iface := range all {
-			v := s.Index(i)
-			v.Set(reflect.ValueOf(iface))
-		}
-
-		sliceValue.Set(s)
-	}
 }

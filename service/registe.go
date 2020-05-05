@@ -55,6 +55,10 @@ func (tr *TableRegister) registe(target interface{}) *dbTable {
 	)
 	for i := 0; i < e.NumField(); i++ {
 		field := e.Field(i)
+		if field.Anonymous {
+			continue
+		}
+
 		dbTag := field.Tag.Get(mdb.STRUCT_TAG)
 		if len(dbTag) > 0 {
 			tf = append(tf, dbTag)
