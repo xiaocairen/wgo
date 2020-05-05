@@ -26,8 +26,8 @@ func (sr *TableRegister) RegisteTables(tables []interface{}) {
 	}
 }
 
-func (tr *TableRegister) registe(service interface{}) *dbTable {
-	t := reflect.TypeOf(service)
+func (tr *TableRegister) registe(target interface{}) *dbTable {
+	t := reflect.TypeOf(target)
 	if t.Kind() != reflect.Ptr {
 		panic(fmt.Sprintf("service '%s' must be ptr to struct", t.String()))
 	}
@@ -40,13 +40,18 @@ func (tr *TableRegister) registe(service interface{}) *dbTable {
 	dotPos := strings.LastIndex(name, ".")
 	tableName := tool.Camel2Underline(name[dotPos+1:])
 
-	dbt := &dbTable{structName: t.String(), tableName: tableName}
+	dbt := &dbTable{
+		target:     target,
+		targetType: t,
+		structName: t.String(),
+		tableName:  tableName,
+	}
 	var (
 		sf []reflect.StructField
 		tf []string
 		pk string
 		pf reflect.StructField
-		v  = reflect.ValueOf(service).Elem()
+		v  = reflect.ValueOf(target).Elem()
 	)
 	for i := 0; i < e.NumField(); i++ {
 		field := e.Field(i)

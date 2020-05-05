@@ -563,10 +563,10 @@ func (r *Rows) ScanStructAll(in interface{}) ([]interface{}, error) {
 		fields = make([]reflect.StructField, n)
 	)
 	if ot.Kind() != reflect.Ptr || ote.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("out must be ptr to struct")
+		return nil, fmt.Errorf("param in must be ptr to struct")
 	}
 	if ov.IsNil() {
-		return nil, fmt.Errorf("out is nil")
+		return nil, fmt.Errorf("param in is nil")
 	}
 
 	for k, ct := range coltype {

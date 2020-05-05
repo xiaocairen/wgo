@@ -9,12 +9,19 @@ import (
 	"sync"
 )
 
+const (
+	MKEY = "mkey"
+	FKEY = "fkey"
+)
+
 var (
 	svcInstance    *Service
 	onceNewService sync.Once
 )
 
 type dbTable struct {
+	target       interface{}
+	targetType   reflect.Type
 	structName   string
 	structFields []reflect.StructField
 	tableName    string
@@ -51,8 +58,9 @@ func (svc *Service) NewDBService(target interface{}) *dbService {
 
 	return &dbService{
 		conn:       svc.db.GetConn(),
-		target:     target,
+		service:    svc,
 		table:      dbt,
+		target:     target,
 		targetType: typ,
 		newErr:     nil,
 	}
@@ -68,8 +76,9 @@ func (svc *Service) NewDBServiceByHostDbName(target interface{}, hostDbName stri
 
 	return &dbService{
 		conn:       svc.db.GetConnByName(hostDbName),
-		target:     target,
+		service:    svc,
 		table:      dbt,
+		target:     target,
 		targetType: typ,
 		newErr:     nil,
 	}
@@ -99,10 +108,20 @@ func (svc *Service) loadTableByTarget(target interface{}) (*dbTable, reflect.Typ
 	return dbt, targetTypeElem, nil
 }
 
+func (svc *Service) loadTableByName(structName string) *dbTable {
+	for _, dbt := range svc.dbTables {
+		if dbt.structName == structName {
+			return dbt
+		}
+	}
+	return nil
+}
+
 type dbService struct {
 	conn       *mdb.Conn
-	target     interface{}
+	service    *Service
 	table      *dbTable
+	target     interface{}
 	targetType reflect.Type
 	newErr     error
 }
@@ -284,17 +303,97 @@ func (ds *dbService) DeleteByField(field string, value interface{}) (int64, erro
 	return ar, err
 }
 
-func (ds *dbService) Load() error {
+func (ds *dbService) Load(with ...string) error {
 	if ds.newErr != nil {
 		return ds.newErr
 	}
 
 	pv := ds.GetPrimaryVal()
-	return ds.conn.Select(msql.Select{
+	err := ds.conn.Select(msql.Select{
 		Select: msql.Fields(ds.table.tableFields...),
 		From:   msql.Table{Table: ds.table.tableName},
 		Where:  msql.Where(ds.table.primaryKey, "=", pv),
 	}).QueryRow().ScanStruct(ds.target)
+
+	if nil != err {
+		return err
+	}
+
+	if len(with) > 0 {
+		ds.loadWith(with...)
+	}
+
+	return nil
+}
+
+func (ds *dbService) loadWith(with ...string) error {
+	rvalue := reflect.ValueOf(ds.target).Elem()
+	for _, sn := range with {
+		var field *reflect.StructField
+		for _, f := range ds.table.structFields {
+			if sn == f.Name {
+				field = &f
+				break
+			}
+		}
+		if nil == field {
+			continue
+		}
+
+		var (
+			mkey   = field.Tag.Get(MKEY)
+			fkey   = field.Tag.Get(FKEY)
+			mfield *reflect.StructField
+		)
+		for _, f := range ds.table.structFields {
+			if mkey == f.Tag.Get(mdb.STRUCT_TAG) {
+				mfield = &f
+				break
+			}
+		}
+		if nil == mfield {
+			continue
+		}
+
+		var (
+			kind   = field.Type.Kind()
+			ivalue = rvalue.FieldByName(mfield.Name).Interface()
+		)
+		if reflect.Ptr == kind {
+			target := ds.service.loadTableByName(field.Type.String())
+			if nil == target {
+				continue
+			}
+
+			out := reflect.New(field.Type.Elem()).Interface()
+			if e := ds.conn.Select(msql.Select{
+				Select: msql.Fields(target.tableFields...),
+				From:   msql.Table{Table: target.tableName},
+				Where:  msql.Where(fkey, "=", ivalue),
+			}).QueryRow().ScanStruct(out); e != nil {
+				return e
+			}
+
+			rvalue.FieldByName(field.Name).Set(reflect.ValueOf(out))
+		} else if reflect.Slice == kind {
+			target := ds.service.loadTableByName(field.Type.String()[2:])
+			if nil == target {
+				continue
+			}
+
+			all, err := ds.conn.Select(msql.Select{
+				Select: msql.Fields(target.tableFields...),
+				From:   msql.Table{Table: target.tableName},
+				Where:  msql.Where(fkey, "=", ivalue),
+			}).Query().ScanStructAll(target.target)
+			if err != nil {
+				return err
+			}
+
+			fillSlice(rvalue.FieldByName(field.Name), field.Type, all)
+		}
+	}
+	return nil
 }
 
 // param where use func msql.Where, msql.And, msql.Or, msql.In, msql.NotIn,
@@ -330,7 +429,7 @@ func (ds *dbService) LoadBy(where *msql.WhereCondition, orderBy []string, limit,
 	}).Query().ScanStructAll(ds.target)
 }
 
-func (ds *dbService) LoadPaginator(curPage, pageSize uint64, selection *msql.Select, loadAssist bool) (*Paginator, error) {
+func (ds *dbService) LoadPaginator(selection *msql.Select, curPage, pageSize uint64) (*Paginator, error) {
 	if ds.newErr != nil {
 		return nil, ds.newErr
 	}
@@ -379,4 +478,17 @@ func (ds *dbService) getFieldValues() (fieldValues map[string]interface{}, targe
 		}
 	}
 	return
+}
+
+func fillSlice(sliceValue reflect.Value, sliceType reflect.Type, all []interface{}) {
+	n := len(all)
+	if n > 0 {
+		s := reflect.MakeSlice(sliceType, n, n)
+		for i, iface := range all {
+			v := s.Index(i)
+			v.Set(reflect.ValueOf(iface))
+		}
+
+		sliceValue.Set(s)
+	}
 }
