@@ -6,6 +6,7 @@ import (
 	"github.com/xiaocairen/wgo/config"
 	"github.com/xiaocairen/wgo/tool"
 	"html/template"
+	"log"
 	"net/http"
 	"reflect"
 )
@@ -23,7 +24,7 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	route, params, notfound := this.Router.getHandler(r)
 	if nil != notfound {
-		panic(notfound)
+		log.Panic(notfound)
 	}
 
 	req := &HttpRequest{Request: r}
@@ -65,38 +66,38 @@ func (this server) InjectRouteController(controller interface{}) {
 		sf     reflect.StructField
 	)
 	if w, f := ctltyp.FieldByName("WgoController"); !f || w.Type.Kind() != reflect.Struct || "wgo.WgoController" != w.Type.String() {
-		panic("struct WgoController must be embeded in " + name)
+		log.Panicf("struct WgoController must be embeded in %s", name)
 	}
 
 	sf, _ = ctltyp.FieldByName("Configurator")
 	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*config.Configurator" {
-		panic("Configurator of " + name + " must be struct *config.Configurator")
+		log.Panicf("Configurator of %s must be struct *config.Configurator", name)
 	}
 
 	sf, _ = ctltyp.FieldByName("Service")
 	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*service.Service" {
-		panic("Service of " + name + " must be struct *service.Service")
+		log.Panicf("Service of %s must be struct *service.Service", name)
 	}
 
 	sf, _ = ctltyp.FieldByName("HttpResponse")
 	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*wgo.HttpResponse" {
-		panic("HttpResponse of " + name + " must be struct *wgo.HttpResponse")
+		log.Panicf("HttpResponse of %s must be struct *wgo.HttpResponse", name)
 	}
 
 	sf, _ = ctltyp.FieldByName("HttpRequest")
 	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*wgo.HttpRequest" {
-		panic("HttpRequest of " + name + " must be struct *wgo.HttpRequest")
+		log.Panicf("HttpRequest of %s must be struct *wgo.HttpRequest", name)
 	}
 
 	sf, _ = ctltyp.FieldByName("Tpl")
 	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*template.Template" {
-		panic("Tpl of " + name + " must be struct *template.Template")
+		log.Panicf("Tpl of %s must be struct *template.Template", name)
 	}
 
 	src := reflect.ValueOf(this.Configurator)
 	dst := ctlval.FieldByName("Configurator")
 	if !dst.CanSet() || !src.Type().AssignableTo(dst.Type()) {
-		panic("Configurator of " + name + " can't be assignableTo")
+		log.Panicf("Configurator of %s can't be assignableTo", name)
 	}
 	dst.Set(src)
 
@@ -104,7 +105,7 @@ func (this server) InjectRouteController(controller interface{}) {
 		src = reflect.ValueOf(this.app.service)
 		dst = ctlval.FieldByName("Service")
 		if !dst.CanSet() || !src.Type().AssignableTo(dst.Type()) {
-			panic("field Service of " + name + " can't be assign")
+			log.Panicf("field Service of %s can't be assign", name)
 		}
 		dst.Set(src)
 	}
@@ -117,7 +118,7 @@ func (this server) InjectRouteController(controller interface{}) {
 
 	dst = ctlval.FieldByName("Tpl")
 	if !dst.CanSet() || !src.Type().AssignableTo(dst.Type()) {
-		panic("field Tpl of " + name + " can't be assign")
+		log.Panicf("field Tpl of %s can't be assign", name)
 	}
 	dst.Set(src)
 }

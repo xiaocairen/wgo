@@ -3,8 +3,8 @@ package wgo
 import (
 	"fmt"
 	"github.com/xiaocairen/wgo/config"
-	"github.com/xiaocairen/wgo/service"
 	"github.com/xiaocairen/wgo/mdb"
+	"github.com/xiaocairen/wgo/service"
 	"github.com/xiaocairen/wgo/tool"
 	"html/template"
 	"log"
@@ -21,6 +21,8 @@ var (
 	onceAppRun  sync.Once
 )
 
+type Tasker func(c *config.Configurator, s *service.Service)
+
 type app struct {
 	debug                        bool
 	configurator                 *config.Configurator
@@ -30,34 +32,34 @@ type app struct {
 	reqControllerInjectorChain   []RequestControllerInjector
 	tableCollection              service.TableCollection
 	htmlTemplate                 *template.Template
-	taskers                      []func()
+	taskers                      []Tasker
 }
 
 func init() {
 	if nil == appInstance {
 		path, err := filepath.Abs(filepath.Dir(os.Args[0]))
 		if err != nil {
-			log.Fatal(err)
+			log.Panic(err)
 		}
 		if err := os.Chdir(path); err != nil {
-			log.Fatal("unable to change working dir " + err.Error())
+			log.Panic("unable to change working dir " + err.Error())
 		}
 
 		appInstance = &app{configurator: config.New("app.json")}
 
 		if err := appInstance.configurator.GetBool("debug", &appInstance.debug); err != nil {
-			log.Fatal(err)
+			log.Panic(err)
 		}
 
 		var dbTestPing bool
 		if err := appInstance.configurator.GetBool("db_test_ping", &dbTestPing); err != nil {
-			log.Fatal(err)
+			log.Panic(err)
 		}
 
 		dbc, err := appInstance.configurator.Get("database")
 		if nil != err {
 			if dbTestPing {
-				log.Fatal(err)
+				log.Panic(err)
 			}
 			return
 		}
@@ -65,7 +67,7 @@ func init() {
 		var dbcs []*mdb.DBConfig
 		if err := parseDbConfig(dbc, &dbcs); err != nil {
 			if dbTestPing {
-				log.Fatal(err)
+				log.Panic(err)
 			}
 			return
 		}
@@ -73,13 +75,15 @@ func init() {
 		db, err := mdb.NewDB(dbcs, dbTestPing)
 		if err != nil {
 			if dbTestPing {
-				log.Fatal(err)
+				log.Panic(err)
 			}
 			return
 		}
 
 		appInstance.service = service.NewService(db)
 	}
+
+	initLogger()
 }
 
 func GetApp() *app {
@@ -102,6 +106,7 @@ func (this *app) Run() {
 		r.init(this.routeControllerInjectorChain)
 
 		this.service.Registe(this.tableCollection)
+		this.startTaskers()
 
 		mux := http.NewServeMux()
 		mux.Handle("/page/", http.StripPrefix("/page/", http.FileServer(http.Dir("web"))))
@@ -131,6 +136,19 @@ func (this *app) Run() {
 	})
 }
 
+func (this *app) startTaskers() {
+	for _, tasker := range this.taskers {
+		go func() {
+			defer func() {
+				if e := recover(); e != nil {
+					log.Printf("%s", e)
+				}
+			}()
+			tasker(this.configurator, this.service)
+		}()
+	}
+}
+
 func (this *app) SetRouteCollection(rc RouteCollection) {
 	if nil == this.routeCollection {
 		this.routeCollection = rc
@@ -157,10 +175,8 @@ func (this *app) SetHtmlTemplate(tpl *template.Template) {
 	}
 }
 
-func (this *app) RegisteTaskers(taskers []func()) {
-	if nil == this.taskers {
-		this.taskers = taskers
-	}
+func (this *app) AddTasker(tasker Tasker) {
+	this.taskers = append(this.taskers, tasker)
 }
 
 func (this *app) GetConfigurator() *config.Configurator {
@@ -169,6 +185,23 @@ func (this *app) GetConfigurator() *config.Configurator {
 
 func (this *app) GetService() *service.Service {
 	return this.service
+}
+
+func initLogger() {
+	if _, err := os.Stat("log"); nil != err {
+		if !os.IsExist(err) {
+			if err := os.Mkdir("log", os.ModePerm); nil != err {
+				log.Panic(err)
+			}
+		}
+	}
+
+	f, err := os.OpenFile("log/wgo.log", os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
+	if err != nil {
+		log.Panic(err)
+	}
+	log.SetFlags(log.Ldate | log.Lmicroseconds | log.Lshortfile)
+	log.SetOutput(f)
 }
 
 func parseDbConfig(dbc interface{}, dbcs *[]*mdb.DBConfig) error {

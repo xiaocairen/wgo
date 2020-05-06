@@ -2,6 +2,7 @@ package wgo
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -445,7 +446,7 @@ func parseRouteMethod(m *routeNamespace, ns string, unit *RouteUnit, chain []Rou
 func parseRoutePath(routePath string) (path string, params [][]interface{}) {
 	n := strings.Index(routePath, "/:")
 	if 0 == n || 1 == n {
-		panic(fmt.Errorf("not support route path '%s'", routePath))
+		log.Panicf("not support route path '%s'", routePath)
 	}
 
 	var pStr string
@@ -465,7 +466,7 @@ func parseRoutePath(routePath string) (path string, params [][]interface{}) {
 			tmp := strings.Split(p, ":")
 			n := len(tmp)
 			if n < 2 {
-				panic(fmt.Errorf("illegal route path '%s'", path))
+				log.Panicf("illegal route path '%s'", path)
 			}
 
 			tmp[1] = strings.ToLower(tmp[1])
@@ -475,14 +476,14 @@ func parseRoutePath(routePath string) (path string, params [][]interface{}) {
 				if n >= 3 {
 					i, e := strconv.Atoi(tmp[2])
 					if e != nil {
-						panic(fmt.Errorf("'%s' in route path '%s' can't convert to int", path, tmp[2]))
+						log.Panicf("'%s' in route path '%s' can't convert to int", path, tmp[2])
 					}
 					param = append(param, i)
 				}
 				if n >= 4 {
 					i, e := strconv.Atoi(tmp[3])
 					if e != nil {
-						panic(fmt.Errorf("'%s' in route path '%s' can't convert to int", path, tmp[3]))
+						log.Panicf("'%s' in route path '%s' can't convert to int", path, tmp[3])
 					}
 					param = append(param, i)
 				}
@@ -490,14 +491,14 @@ func parseRoutePath(routePath string) (path string, params [][]interface{}) {
 				if n >= 3 {
 					f, e := strconv.ParseFloat(tmp[2], 64)
 					if e != nil {
-						panic(fmt.Errorf("'%s' in route path '%s' can't convert to float64", path, tmp[2]))
+						log.Panicf("'%s' in route path '%s' can't convert to float64", path, tmp[2])
 					}
 					param = append(param, f)
 				}
 				if n >= 4 {
 					f, e := strconv.ParseFloat(tmp[3], 64)
 					if e != nil {
-						panic(fmt.Errorf("'%s' in route path '%s' can't convert to float64", path, tmp[3]))
+						log.Panicf("'%s' in route path '%s' can't convert to float64", path, tmp[3])
 					}
 					param = append(param, f)
 				}
@@ -511,7 +512,7 @@ func parseRoutePath(routePath string) (path string, params [][]interface{}) {
 func parseRouteAction(action string) (name string, params [][]string) {
 	n := strings.Index(action, "(")
 	if n <= 0 {
-		panic(fmt.Errorf("not support route action '%s'", action))
+		log.Panicf("not support route action '%s'", action)
 	}
 
 	name = action[0:n]
@@ -522,7 +523,7 @@ func parseRouteAction(action string) (name string, params [][]string) {
 			p = strings.TrimSpace(p)
 			tmp := strings.Split(p, " ")
 			if 2 != len(tmp) {
-				panic(fmt.Errorf("illegal route action '%s'", action))
+				log.Panicf("illegal route action '%s'", action)
 			}
 			tmp[0] = strings.TrimSpace(tmp[0])
 			tmp[1] = strings.TrimSpace(tmp[1])
@@ -535,7 +536,7 @@ func parseRouteAction(action string) (name string, params [][]string) {
 func parseRouteController(controller interface{}, action string, actParams [][]string, pathParams [][]interface{}, chain []RouteControllerInjector) (actionMethod reflect.Method, hasInit bool) {
 	rtc := reflect.TypeOf(controller)
 	if rtc.Kind() != reflect.Ptr {
-		panic(fmt.Errorf("controller must be ptr point to struct"))
+		log.Panicf("controller must be ptr point to struct")
 	}
 
 	var found bool
@@ -546,32 +547,32 @@ func parseRouteController(controller interface{}, action string, actParams [][]s
 		for _, ap := range actParams {
 			if ap[0] == ppname {
 				if ap[1] != pptype {
-					panic(fmt.Errorf("type of '%s' of '%s' mismatch path param", ppname, rtc.String()))
+					log.Panicf("type of '%s' of '%s' mismatch path param", ppname, rtc.String())
 				}
 				found = true
 				break
 			}
 		}
 		if !found {
-			panic(fmt.Errorf("param '%s' of '%s' be not found in route path params", ppname, rtc.String()))
+			log.Panicf("param '%s' of '%s' be not found in route path params", ppname, rtc.String())
 		}
 	}
 
 	_, hasInit = rtc.MethodByName("Init")
 	actionMethod, found = rtc.MethodByName(action)
 	if !found {
-		panic(fmt.Errorf("not found method '%s' in '%s'", action, rtc.String()))
+		log.Panicf("not found method '%s' in '%s'", action, rtc.String())
 	}
 
 	m := reflect.ValueOf(controller).MethodByName(action).Type()
 	n := m.NumIn()
 	if n != len(actParams) {
-		panic(fmt.Errorf("param num of method '%s' of '%s' mismatch router", action, rtc.String()))
+		log.Panicf("param num of method '%s' of '%s' mismatch router", action, rtc.String())
 	}
 	for i := 0; i < n; i++ {
 		in := m.In(i)
 		if in.Name() != actParams[i][1] {
-			panic(fmt.Errorf("param[%d] type of method '%s' of '%s' mismatch router", i, action, rtc.String()))
+			log.Panicf("param[%d] type of method '%s' of '%s' mismatch router", i, action, rtc.String())
 		}
 	}
 
