@@ -59,75 +59,67 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (this server) InjectRouteController(controller interface{}) {
 	var (
-		ctltype = reflect.TypeOf(controller).Elem()
-		ctlname = ctltype.String()
-	)
-	if wgo, found := ctltype.FieldByName("WgoController"); !found {
-		panic("struct WgoController must be embeded in " + ctlname)
-	} else if wgo.Type.Kind() != reflect.Struct || "wgo.WgoController" != wgo.Type.String() {
-		panic("WgoController of " + ctlname + " must be wgo.WgoController")
-	}
-
-	var sf reflect.StructField
-
-	sf, _ = ctltype.FieldByName("Configurator")
-	if sf.Type.Kind() != reflect.Ptr || sf.Type.String() != "*config.Configurator" {
-		panic("Configurator of " + ctlname + " must be *config.Configurator")
-	}
-
-	sf, _ = ctltype.FieldByName("Service")
-	if sf.Type.Kind() != reflect.Ptr || sf.Type.String() != "*service.Service" {
-		panic("Service of " + ctlname + " must be *service.Service")
-	}
-
-	sf, _ = ctltype.FieldByName("HttpResponse")
-	if sf.Type.Kind() != reflect.Ptr || sf.Type.String() != "*wgo.HttpResponse" {
-		panic("HttpResponse of " + ctlname + " must be *wgo.HttpResponse")
-	}
-
-	sf, _ = ctltype.FieldByName("HttpRequest")
-	if sf.Type.Kind() != reflect.Ptr || sf.Type.String() != "*wgo.HttpRequest" {
-		panic("HttpRequest of " + ctlname + " must be *wgo.HttpRequest")
-	}
-
-	sf, _ = ctltype.FieldByName("Tpl")
-	if sf.Type.Kind() != reflect.Ptr || sf.Type.String() != "*template.Template" {
-		panic("Tpl of " + ctlname + " must be *template.Template")
-	}
-
-	var (
+		ctltyp = reflect.TypeOf(controller).Elem()
 		ctlval = reflect.ValueOf(controller).Elem()
-		srcCfg = reflect.ValueOf(this.Configurator)
-		dstCfg = ctlval.FieldByName("Configurator")
+		name   = ctltyp.String()
+		sf     reflect.StructField
 	)
-	if !dstCfg.CanSet() || !srcCfg.Type().AssignableTo(dstCfg.Type()) {
-		panic("Configurator of " + ctlname + " can't be assignableTo")
+	if w, f := ctltyp.FieldByName("WgoController"); !f || w.Type.Kind() != reflect.Struct || "wgo.WgoController" != w.Type.String() {
+		panic("struct WgoController must be embeded in " + name)
 	}
-	dstCfg.Set(srcCfg)
+
+	sf, _ = ctltyp.FieldByName("Configurator")
+	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*config.Configurator" {
+		panic("Configurator of " + name + " must be struct *config.Configurator")
+	}
+
+	sf, _ = ctltyp.FieldByName("Service")
+	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*service.Service" {
+		panic("Service of " + name + " must be struct *service.Service")
+	}
+
+	sf, _ = ctltyp.FieldByName("HttpResponse")
+	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*wgo.HttpResponse" {
+		panic("HttpResponse of " + name + " must be struct *wgo.HttpResponse")
+	}
+
+	sf, _ = ctltyp.FieldByName("HttpRequest")
+	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*wgo.HttpRequest" {
+		panic("HttpRequest of " + name + " must be struct *wgo.HttpRequest")
+	}
+
+	sf, _ = ctltyp.FieldByName("Tpl")
+	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*template.Template" {
+		panic("Tpl of " + name + " must be struct *template.Template")
+	}
+
+	src := reflect.ValueOf(this.Configurator)
+	dst := ctlval.FieldByName("Configurator")
+	if !dst.CanSet() || !src.Type().AssignableTo(dst.Type()) {
+		panic("Configurator of " + name + " can't be assignableTo")
+	}
+	dst.Set(src)
 
 	if nil != this.app.service {
-		var (
-			srcSvc = reflect.ValueOf(this.app.service)
-			dstSvc = ctlval.FieldByName("Service")
-		)
-		if !dstSvc.CanSet() || !srcSvc.Type().AssignableTo(dstSvc.Type()) {
-			panic("field Service of " + ctlname + " can't be assign")
+		src = reflect.ValueOf(this.app.service)
+		dst = ctlval.FieldByName("Service")
+		if !dst.CanSet() || !src.Type().AssignableTo(dst.Type()) {
+			panic("field Service of " + name + " can't be assign")
 		}
-		dstSvc.Set(srcSvc)
+		dst.Set(src)
 	}
 
-	var srcTpl reflect.Value
 	if nil == this.app.htmlTemplate {
-		srcTpl = reflect.ValueOf(template.New("WgoTemplateEngine"))
+		src = reflect.ValueOf(template.New("WgoTemplateEngine"))
 	} else {
-		srcTpl = reflect.ValueOf(this.app.htmlTemplate)
+		src = reflect.ValueOf(this.app.htmlTemplate)
 	}
 
-	var dstTpl = ctlval.FieldByName("Tpl")
-	if !dstTpl.CanSet() || !srcTpl.Type().AssignableTo(dstTpl.Type()) {
-		panic("field Tpl of " + ctlname + " can't be assign")
+	dst = ctlval.FieldByName("Tpl")
+	if !dst.CanSet() || !src.Type().AssignableTo(dst.Type()) {
+		panic("field Tpl of " + name + " can't be assign")
 	}
-	dstTpl.Set(srcTpl)
+	dst.Set(src)
 }
 
 func (this *server) finaly(res http.ResponseWriter, req *http.Request) {
