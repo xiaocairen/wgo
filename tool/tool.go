@@ -603,39 +603,61 @@ func fillStruct(outType reflect.Type, outValue reflect.Value, name string, value
 }*/
 
 // The key argument should be the AES key,
-// either 16, 24, or 32 bytes to select
-// AES-128, AES-192, or AES-256.
-func AesEncrypt(data, key []byte) (string, error) {
+// either 16, 24, or 32 bytes to select AES-128, AES-192, or AES-256.
+func AesCBCEncrypt(rawData, key, iv []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	blockSize := block.BlockSize()
+	if iv == nil {
+		iv = key[:blockSize]
+	}
+	blockMode := cipher.NewCBCEncrypter(block, iv)
+	rawData = pkcs7Padding(rawData, blockSize)
+	encData := make([]byte, len(rawData))
+
+	blockMode.CryptBlocks(encData, rawData)
+	return encData, nil
+}
+
+func AesCBCDecrypt(encData, key, iv []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	blockSize := block.BlockSize()
+	if iv == nil {
+		iv = key[:blockSize]
+	}
+	blockMode := cipher.NewCBCDecrypter(block, iv)
+	origData := make([]byte, len(encData))
+	blockMode.CryptBlocks(origData, encData)
+	origData = pkcs7UnPadding(origData)
+	return origData, nil
+}
+
+func Encrypt(rawData, key, iv []byte) (string, error) {
+	data, err := AesCBCEncrypt(rawData, key, iv)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(data), nil
+}
+
+func Decrypt(encData string, key, iv []byte) (string, error) {
+	tmpData, err := base64.StdEncoding.DecodeString(encData)
 	if err != nil {
 		return "", err
 	}
 
-	blockSize := block.BlockSize()
-	data = pkcs5Padding(data, blockSize)
-	blockMode := cipher.NewCBCEncrypter(block, key[:blockSize])
-	crypted := make([]byte, len(data))
-
-	blockMode.CryptBlocks(crypted, data)
-	return base64.RawURLEncoding.EncodeToString(crypted), nil
-}
-
-func AesDecrypt(crypted string, key []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
+	decData, err := AesCBCDecrypt(tmpData, key, iv)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	src, err := base64.RawURLEncoding.DecodeString(crypted)
-	if err != nil {
-		return nil, err
-	}
-
-	blockSize := block.BlockSize()
-	blockMode := cipher.NewCBCDecrypter(block, key[:blockSize])
-	origData := make([]byte, len(src))
-	blockMode.CryptBlocks(origData, src)
-	origData = pkcs5UnPadding(origData)
-	return origData, nil
+	return string(decData), nil
 }
 
 func zeroPadding(ciphertext []byte, blockSize int) []byte {
@@ -650,13 +672,13 @@ func zeroUnPadding(origData []byte) []byte {
 	return origData[:(length - unpadding)]
 }
 
-func pkcs5Padding(ciphertext []byte, blockSize int) []byte {
+func pkcs7Padding(ciphertext []byte, blockSize int) []byte {
 	padding := blockSize - len(ciphertext)%blockSize
 	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
 	return append(ciphertext, padtext...)
 }
 
-func pkcs5UnPadding(origData []byte) []byte {
+func pkcs7UnPadding(origData []byte) []byte {
 	length := len(origData)
 	unpadding := int(origData[length-1])
 	return origData[:(length - unpadding)]
