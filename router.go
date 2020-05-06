@@ -63,7 +63,7 @@ func (this *router) searchRoute(routes []*routeNamespace, r *http.Request) (rout
 	}
 
 	var (
-		routeIt  *routeNamespace
+		routeIt *routeNamespace
 		routeSp *routeNamespace
 	)
 	for key, rns := range routes {
