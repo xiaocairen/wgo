@@ -1,8 +1,11 @@
 package wgo
 
 import (
+	"fmt"
 	"github.com/xiaocairen/wgo/config"
 	"github.com/xiaocairen/wgo/service"
+	"github.com/xiaocairen/wgo/mdb"
+	"github.com/xiaocairen/wgo/tool"
 	"html/template"
 	"log"
 	"net/http"
@@ -19,13 +22,15 @@ var (
 )
 
 type app struct {
-	debug                     bool
-	configurator              *config.Configurator
-	routeCollection           RouteCollection
-	requestControllerInjector RequestControllerInjector
-	tableCollection           service.TableCollection
-	htmlTemplate              *template.Template
-	taskers                   []func()
+	debug                        bool
+	configurator                 *config.Configurator
+	service                      *service.Service
+	routeCollection              RouteCollection
+	routeControllerInjectorChain []RouteControllerInjector
+	reqControllerInjectorChain   []RequestControllerInjector
+	tableCollection              service.TableCollection
+	htmlTemplate                 *template.Template
+	taskers                      []func()
 }
 
 func init() {
@@ -38,12 +43,42 @@ func init() {
 			log.Fatal("unable to change working dir " + err.Error())
 		}
 
-		appInstance = &app{
-			configurator: config.New("app.json"),
-		}
+		appInstance = &app{configurator: config.New("app.json")}
+
 		if err := appInstance.configurator.GetBool("debug", &appInstance.debug); err != nil {
 			log.Fatal(err)
 		}
+
+		var dbTestPing bool
+		if err := appInstance.configurator.GetBool("db_test_ping", &dbTestPing); err != nil {
+			log.Fatal(err)
+		}
+
+		dbc, err := appInstance.configurator.Get("database")
+		if nil != err {
+			if dbTestPing {
+				log.Fatal(err)
+			}
+			return
+		}
+
+		var dbcs []*mdb.DBConfig
+		if err := parseDbConfig(dbc, &dbcs); err != nil {
+			if dbTestPing {
+				log.Fatal(err)
+			}
+			return
+		}
+
+		db, err := mdb.NewDB(dbcs, dbTestPing)
+		if err != nil {
+			if dbTestPing {
+				log.Fatal(err)
+			}
+			return
+		}
+
+		appInstance.service = service.NewService(db)
 	}
 }
 
@@ -63,7 +98,10 @@ func (this *app) Run() {
 
 		r := &router{RouteCollection: this.routeCollection}
 		s := &server{app: this, Configurator: this.configurator, Router: r}
-		r.init([]RouteControllerInjector{s})
+		this.AddRouteControllerInjector(s)
+		r.init(this.routeControllerInjectorChain)
+
+		this.service.Registe(this.tableCollection)
 
 		mux := http.NewServeMux()
 		mux.Handle("/page/", http.StripPrefix("/page/", http.FileServer(http.Dir("web"))))
@@ -105,10 +143,12 @@ func (this *app) SetTableCollection(tc service.TableCollection) {
 	}
 }
 
-func (this *app) SetRequestControllerInjector(injector RequestControllerInjector) {
-	if nil == this.requestControllerInjector {
-		this.requestControllerInjector = injector
-	}
+func (this *app) AddRequestControllerInjector(injector RequestControllerInjector) {
+	this.reqControllerInjectorChain = append(this.reqControllerInjectorChain, injector)
+}
+
+func (this *app) AddRouteControllerInjector(injector RouteControllerInjector) {
+	this.routeControllerInjectorChain = append(this.routeControllerInjectorChain, injector)
 }
 
 func (this *app) SetHtmlTemplate(tpl *template.Template) {
@@ -125,4 +165,78 @@ func (this *app) RegisteTaskers(taskers []func()) {
 
 func (this *app) GetConfigurator() *config.Configurator {
 	return this.configurator
+}
+
+func (this *app) GetService() *service.Service {
+	return this.service
+}
+
+func parseDbConfig(dbc interface{}, dbcs *[]*mdb.DBConfig) error {
+	if s, ok := dbc.([]interface{}); ok {
+		for _, v := range s {
+			m, ok := v.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("db config must be []map[string]interface{}")
+			}
+			var dbc mdb.DBConfig
+			tool.StructFill(&m, &dbc)
+			*dbcs = append(*dbcs, &dbc)
+		}
+		return nil
+
+	} else if m, ok := dbc.(map[string]interface{}); ok {
+		if _, f := m["driver"]; f {
+			var dbc mdb.DBConfig
+			tool.StructFill(&m, &dbc)
+			*dbcs = append(*dbcs, &dbc)
+		} else {
+			write, fw := m["write"]
+			read, fr := m["read"]
+			if !fw || !fr {
+				return fmt.Errorf("read and write db must be both exist")
+			}
+
+			if ws, ok := write.([]interface{}); ok {
+				for _, v := range ws {
+					m, ok := v.(map[string]interface{})
+					if !ok {
+						return fmt.Errorf("db config must be map[string]interface{}")
+					}
+					var dbc mdb.DBConfig
+					tool.StructFill(&m, &dbc)
+					dbc.ReadOrWrite = mdb.ONLY_WRITE
+					*dbcs = append(*dbcs, &dbc)
+				}
+			} else if m, ok := write.(map[string]interface{}); ok {
+				var dbc mdb.DBConfig
+				tool.StructFill(&m, &dbc)
+				dbc.ReadOrWrite = mdb.ONLY_WRITE
+				*dbcs = append(*dbcs, &dbc)
+			} else {
+				return fmt.Errorf("db config must be map or slice")
+			}
+
+			if rs, ok := read.([]interface{}); ok {
+				for _, v := range rs {
+					m, ok := v.(map[string]interface{})
+					if !ok {
+						return fmt.Errorf("db config must be map[string]interface{}")
+					}
+					var dbc mdb.DBConfig
+					tool.StructFill(&m, &dbc)
+					dbc.ReadOrWrite = mdb.ONLY_READ
+					*dbcs = append(*dbcs, &dbc)
+				}
+			} else if m, ok := read.(map[string]interface{}); ok {
+				var dbc mdb.DBConfig
+				tool.StructFill(&m, &dbc)
+				dbc.ReadOrWrite = mdb.ONLY_READ
+				*dbcs = append(*dbcs, &dbc)
+			} else {
+				return fmt.Errorf("db config must be map or slice")
+			}
+		}
+		return nil
+	}
+	return fmt.Errorf("db config must be map or slice")
 }

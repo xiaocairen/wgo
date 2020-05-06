@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/xiaocairen/wgo/config"
-	"github.com/xiaocairen/wgo/mdb"
-	"github.com/xiaocairen/wgo/service"
 	"github.com/xiaocairen/wgo/tool"
 	"html/template"
 	"net/http"
@@ -39,8 +37,8 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	cve.FieldByName("HttpRequest").Set(reflect.ValueOf(req))
 	cve.FieldByName("HttpResponse").Set(reflect.ValueOf(res))
 
-	if nil != this.app.requestControllerInjector {
-		this.app.requestControllerInjector.InjectRequestController(controller, cve)
+	for _, iface := range this.app.reqControllerInjectorChain {
+		iface.InjectRequestController(controller, cve)
 	}
 
 	if route.hasInit {
@@ -107,28 +105,16 @@ func (this server) InjectRouteController(controller interface{}) {
 	}
 	dstCfg.Set(srcCfg)
 
-	dbc, err := this.Configurator.Get("database")
-	if err != nil {
-		panic(err)
+	if nil != this.app.service {
+		var (
+			srcSvc = reflect.ValueOf(this.app.service)
+			dstSvc = ctlval.FieldByName("Service")
+		)
+		if !dstSvc.CanSet() || !srcSvc.Type().AssignableTo(dstSvc.Type()) {
+			panic("field Service of " + ctlname + " can't be assign")
+		}
+		dstSvc.Set(srcSvc)
 	}
-	var dbcs []*mdb.DBConfig
-	if err := this.parseDBConfig(dbc, &dbcs); err != nil {
-		panic(err)
-	}
-
-	db, err := mdb.NewDB(dbcs)
-	if err != nil {
-		panic(err)
-	}
-
-	var (
-		srcSvc = reflect.ValueOf(service.NewService(db, this.app.tableCollection))
-		dstSvc = ctlval.FieldByName("Service")
-	)
-	if !dstSvc.CanSet() || !srcSvc.Type().AssignableTo(dstSvc.Type()) {
-		panic("field Service of " + ctlname + " can't be assign")
-	}
-	dstSvc.Set(srcSvc)
 
 	var srcTpl reflect.Value
 	if nil == this.app.htmlTemplate {
@@ -144,91 +130,16 @@ func (this server) InjectRouteController(controller interface{}) {
 	dstTpl.Set(srcTpl)
 }
 
-func (this *server) parseDBConfig(dbc interface{}, dbcs *[]*mdb.DBConfig) error {
-	if s, ok := dbc.([]interface{}); ok {
-		for _, v := range s {
-			m, ok := v.(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("element of db config must be map[string]interface{}")
-			}
-			var dbc mdb.DBConfig
-			tool.StructFill(&m, &dbc)
-			*dbcs = append(*dbcs, &dbc)
-		}
-		return nil
-	} else if m, ok := dbc.(map[string]interface{}); ok {
-		if _, f := m["driver"]; f {
-			var dbc mdb.DBConfig
-			tool.StructFill(&m, &dbc)
-			*dbcs = append(*dbcs, &dbc)
-		} else {
-			write, fw := m["write"]
-			read, fr := m["read"]
-			if !fw || !fr {
-				return fmt.Errorf("db config read and write must be both exist")
-			}
-
-			if ws, ok := write.([]interface{}); ok {
-				for _, v := range ws {
-					m, ok := v.(map[string]interface{})
-					if !ok {
-						return fmt.Errorf("element of db config must be map[string]interface{}")
-					}
-					var dbc mdb.DBConfig
-					tool.StructFill(&m, &dbc)
-					dbc.ReadOrWrite = mdb.ONLY_WRITE
-					*dbcs = append(*dbcs, &dbc)
-				}
-			} else if m, ok := write.(map[string]interface{}); ok {
-				var dbc mdb.DBConfig
-				tool.StructFill(&m, &dbc)
-				dbc.ReadOrWrite = mdb.ONLY_WRITE
-				*dbcs = append(*dbcs, &dbc)
-			} else {
-				return fmt.Errorf("db config must be map or slice")
-			}
-
-			if rs, ok := read.([]interface{}); ok {
-				for _, v := range rs {
-					m, ok := v.(map[string]interface{})
-					if !ok {
-						return fmt.Errorf("element of db config must be map[string]interface{}")
-					}
-					var dbc mdb.DBConfig
-					tool.StructFill(&m, &dbc)
-					dbc.ReadOrWrite = mdb.ONLY_READ
-					*dbcs = append(*dbcs, &dbc)
-				}
-			} else if m, ok := read.(map[string]interface{}); ok {
-				var dbc mdb.DBConfig
-				tool.StructFill(&m, &dbc)
-				dbc.ReadOrWrite = mdb.ONLY_READ
-				*dbcs = append(*dbcs, &dbc)
-			} else {
-				return fmt.Errorf("db config must be map or slice")
-			}
-		}
-		return nil
-	}
-	return fmt.Errorf("db config must be map or slice")
-}
-
 func (this *server) finaly(res http.ResponseWriter, req *http.Request) {
 	if e := recover(); e != nil {
 		if "application/json" == req.Header.Get("Accept") {
 			b, _ := json.Marshal(map[string]interface{}{
-				"success": false,
-				"err_msg": e,
+				"success":   false,
+				"error_msg": e,
 			})
 			res.Write(b)
 		} else {
-			if s, ok := e.(string); ok {
-				res.Write(tool.String2Bytes(s))
-			} else if err, ok := e.(error); ok {
-				res.Write(tool.String2Bytes(err.Error()))
-			} else {
-				res.Write(tool.String2Bytes(fmt.Sprintf("panic error: %t", e)))
-			}
+			res.Write(tool.String2Bytes(fmt.Sprintf("%s", e)))
 		}
 	}
 }

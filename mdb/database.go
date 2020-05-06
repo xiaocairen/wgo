@@ -55,11 +55,12 @@ type DB struct {
 	wlen  int
 }
 
-func NewDB(dbcs []*DBConfig) (*DB, error) {
+func NewDB(dbcs []*DBConfig, testPing bool) (*DB, error) {
 	var err error
 	onceNewDB.Do(func() {
 		if nil == dbcs || 0 == len(dbcs) {
-			err = fmt.Errorf("param of NewDB([]*DBConfig) is nil or is empty")
+			dbInstance = &DB{alone: true}
+			err = fmt.Errorf("param dbcs of NewDB() is nil or is empty")
 			return
 		}
 
@@ -71,8 +72,9 @@ func NewDB(dbcs []*DBConfig) (*DB, error) {
 		)
 
 		if 1 == len(dbcs) {
-			db, dsn, e := openDB(dbcs[0])
+			db, dsn, e := openDB(dbcs[0], testPing)
 			if e != nil {
+				dbInstance = &DB{alone: true}
 				err = e
 				return
 			}
@@ -94,8 +96,9 @@ func NewDB(dbcs []*DBConfig) (*DB, error) {
 			}
 		} else {
 			for _, dbc := range dbcs {
-				db, dsn, e := openDB(dbc)
+				db, dsn, e := openDB(dbc, testPing)
 				if e != nil {
+					dbInstance = &DB{alone: true}
 					err = e
 					return
 				}
@@ -119,6 +122,7 @@ func NewDB(dbcs []*DBConfig) (*DB, error) {
 						dsn:    dsn,
 					})
 				default:
+					dbInstance = &DB{alone: true}
 					err = fmt.Errorf("database tag read_or_write must be 0, 1, 2; 0=rw, 1=r, 2=w")
 					return
 				}
@@ -152,7 +156,7 @@ func NewDB(dbcs []*DBConfig) (*DB, error) {
 	return dbInstance, err
 }
 
-func openDB(dbc *DBConfig) (db *sql.DB, dsn string, err error) {
+func openDB(dbc *DBConfig, testPing bool) (db *sql.DB, dsn string, err error) {
 	if "" == dbc.Host || dbc.Port <= 0 {
 		err = fmt.Errorf("db host empty or port '%d' invalid", dbc.Port)
 		return
@@ -163,8 +167,10 @@ func openDB(dbc *DBConfig) (db *sql.DB, dsn string, err error) {
 		return
 	}
 
-	if err = db.Ping(); err != nil {
-		return
+	if testPing {
+		if err = db.Ping(); err != nil {
+			return
+		}
 	}
 
 	if dbc.MaxOpenConns > 0 {

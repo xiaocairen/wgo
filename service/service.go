@@ -35,14 +35,17 @@ type Service struct {
 	dbTables []*dbTable
 }
 
-func NewService(db *mdb.DB, tc TableCollection) *Service {
+func NewService(db *mdb.DB) *Service {
 	onceNewService.Do(func() {
 		svcInstance = &Service{db: db}
-		if nil != tc {
-			tc.call(&TableRegister{service: svcInstance})
-		}
 	})
 	return svcInstance
+}
+
+func (svc *Service) Registe(tc TableCollection) {
+	if len(svc.dbTables) == 0 && nil != tc {
+		tc.call(&TableRegister{service:svc})
+	}
 }
 
 func (svc *Service) DB() *mdb.DB {
