@@ -2,7 +2,6 @@ package wgo
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/xiaocairen/wgo/config"
 	"github.com/xiaocairen/wgo/tool"
 	"html/template"
