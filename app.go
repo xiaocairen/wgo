@@ -22,6 +22,7 @@ var (
 )
 
 type Tasker func(c *config.Configurator, s *service.Service)
+type Finally func(w http.ResponseWriter, r *http.Request)
 
 type app struct {
 	debug                        bool
@@ -33,6 +34,7 @@ type app struct {
 	tableCollection              service.TableCollection
 	htmlTemplate                 *template.Template
 	taskers                      []Tasker
+	finally                      Finally
 }
 
 func init() {
@@ -177,6 +179,12 @@ func (this *app) SetHtmlTemplate(tpl *template.Template) {
 
 func (this *app) AddTasker(tasker Tasker) {
 	this.taskers = append(this.taskers, tasker)
+}
+
+func (this *app) SetFinally(f Finally) {
+	if nil == this.finally {
+		this.finally = f
+	}
 }
 
 func (this *app) GetConfigurator() *config.Configurator {

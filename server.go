@@ -19,7 +19,11 @@ type server struct {
 
 func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !this.app.debug {
-		defer this.finaly(w, r)
+		if nil == this.app.finally {
+			defer this.finally(w, r)
+		} else {
+			defer this.app.finally(w, r)
+		}
 	}
 
 	route, params, notfound := this.Router.getHandler(r)
@@ -55,6 +59,16 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		cv.MethodByName(route.method.Name).Call(values)
+	}
+}
+
+func (this *server) finally(res http.ResponseWriter, req *http.Request) {
+	if e := recover(); e != nil {
+		b, _ := json.Marshal(map[string]interface{}{
+			"success":   false,
+			"error_msg": e,
+		})
+		res.Write(b)
 	}
 }
 
@@ -121,20 +135,6 @@ func (this server) InjectRouteController(controller interface{}) {
 		log.Panicf("field Tpl of %s can't be assign", name)
 	}
 	dst.Set(src)
-}
-
-func (this *server) finaly(res http.ResponseWriter, req *http.Request) {
-	if e := recover(); e != nil {
-		if "application/json" == req.Header.Get("Accept") {
-			b, _ := json.Marshal(map[string]interface{}{
-				"success":   false,
-				"error_msg": e,
-			})
-			res.Write(b)
-		} else {
-			res.Write(tool.String2Bytes(fmt.Sprintf("%s", e)))
-		}
-	}
 }
 
 type RequestControllerInjector interface {
