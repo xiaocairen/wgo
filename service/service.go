@@ -416,7 +416,7 @@ func (ds *dbService) loadWith(with ...string) error {
 
 func (ds *dbService) LoadOne(where *msql.WhereCondition, orderBy []string) error {
 	if ds.newErr != nil {
-		return nil, ds.newErr
+		return ds.newErr
 	}
 
 	rows := ds.conn.Select(msql.Select{
