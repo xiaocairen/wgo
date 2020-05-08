@@ -1,7 +1,6 @@
 package mdb
 
 import (
-	"log"
 	"database/sql"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
