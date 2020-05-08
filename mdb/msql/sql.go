@@ -122,17 +122,17 @@ func (c Insert) Build() SqlStatement {
 		params []interface{}
 	)
 	for k, v := range c.FieldValue {
-		set = append(set, "`"+k+"`=?")
+		set = append(set, k+"=?")
 		params = append(params, v)
 	}
 	for k, v := range c.OnDKUpdate {
-		dku = append(dku, fmt.Sprintf("`%s`=%s", k, v))
+		dku = append(dku, fmt.Sprintf("%s=%s", k, v))
 	}
 
 	if 0 == len(dku) {
-		sql = fmt.Sprintf("INSERT `%s` SET %s", c.Into, strings.Join(set, ","))
+		sql = fmt.Sprintf("INSERT %s SET %s", c.Into, strings.Join(set, ","))
 	} else {
-		sql = fmt.Sprintf("INSERT `%s` SET %s ON DUPLICATE KEY UPDATE %s", c.Into, strings.Join(set, ","), strings.Join(dku, ","))
+		sql = fmt.Sprintf("INSERT %s SET %s ON DUPLICATE KEY UPDATE %s", c.Into, strings.Join(set, ","), strings.Join(dku, ","))
 	}
 	return SqlStatement{
 		Sql:    sql,
@@ -163,7 +163,7 @@ func (u Update) Build() SqlStatement {
 	}
 
 	for k, v := range u.SetValues {
-		set = append(set, "`"+k+"`=?")
+		set = append(set, k+"=?")
 		params = append(params, v)
 	}
 
@@ -223,7 +223,7 @@ func (d Delete) Build() SqlStatement {
 		limit = fmt.Sprintf(" LIMIT %d", d.Limit)
 	}
 
-	sql := fmt.Sprintf("DELETE FROM `%s`%s%s%s%s", d.From, using, where, orderBy, limit)
+	sql := fmt.Sprintf("DELETE FROM %s%s%s%s%s", d.From, using, where, orderBy, limit)
 	return SqlStatement{
 		Sql:    sql,
 		Params: params,
@@ -259,7 +259,7 @@ func (t Table) String() string {
 		leftJoin += s.String()
 	}
 
-	return fmt.Sprintf(" `%s`%s%s%s", t.Table, as, innerJoin, leftJoin)
+	return " " + t.Table + as + innerJoin + leftJoin
 }
 
 type Join struct {
@@ -273,7 +273,7 @@ func (j Join) String() string {
 	if "" != j.As {
 		as = "AS " + j.As
 	}
-	return fmt.Sprintf(" JOIN `%s` %s ON %s", j.Table, as, j.On)
+	return fmt.Sprintf(" JOIN %s %s ON %s", j.Table, as, j.On)
 }
 
 type LeftJoin struct {
@@ -287,7 +287,7 @@ func (lj LeftJoin) String() string {
 	if "" != lj.As {
 		as = "AS " + lj.As
 	}
-	return fmt.Sprintf(" LEFT JOIN `%s` %s ON %s", lj.Table, as, lj.On)
+	return fmt.Sprintf(" LEFT JOIN %s %s ON %s", lj.Table, as, lj.On)
 }
 
 type WhereCondition struct {
@@ -298,14 +298,14 @@ type WhereCondition struct {
 
 func Where(field string, opr string, value interface{}) *WhereCondition {
 	return &WhereCondition{
-		where: fmt.Sprintf("`%s` %s ?", field, opr),
+		where: fmt.Sprintf("%s %s ?", field, opr),
 		param: []interface{}{value},
 	}
 }
 
 func Having(field string, opr string, value interface{}) *WhereCondition {
 	return &WhereCondition{
-		where: fmt.Sprintf("`%s` %s ?", field, opr),
+		where: fmt.Sprintf("%s %s ?", field, opr),
 		param: []interface{}{value},
 	}
 }
@@ -332,7 +332,7 @@ func And(and ...interface{}) *WhereCondition {
 			i++
 		} else if f, ok := and[i].(string); ok && i+2 < n {
 			if opr, ok1 := and[i+1].(string); ok1 {
-				where = append(where, fmt.Sprintf("`%s` %s ?", f, opr))
+				where = append(where, fmt.Sprintf("%s %s ?", f, opr))
 				param = append(param, and[i+2])
 			} else {
 				err = fmt.Errorf("'or' sql operator must be string, '%t'", and[i+1])
@@ -369,7 +369,7 @@ func Or(or ...interface{}) *WhereCondition {
 			i++
 		} else if f, ok := or[i].(string); ok && i+2 < n {
 			if opr, ok1 := or[i+1].(string); ok1 {
-				where = append(where, fmt.Sprintf("`%s` %s ?", f, opr))
+				where = append(where, fmt.Sprintf("%s %s ?", f, opr))
 				param = append(param, or[i+2])
 			} else {
 				err = fmt.Errorf("'or' sql operator must be string, '%t'", or[i+1])
@@ -395,7 +395,7 @@ func In(field string, values []interface{}) *WhereCondition {
 		placeholder[i] = "?"
 	}
 	return &WhereCondition{
-		where: fmt.Sprintf("`%s` IN (%s)", field, strings.Join(placeholder, ",")),
+		where: fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholder, ",")),
 		param: values,
 	}
 }
@@ -407,21 +407,21 @@ func NotIn(field string, values []interface{}) *WhereCondition {
 		placeholder[i] = "?"
 	}
 	return &WhereCondition{
-		where: fmt.Sprintf("`%s` NOT IN (%s)", field, strings.Join(placeholder, ",")),
+		where: fmt.Sprintf("%s NOT IN (%s)", field, strings.Join(placeholder, ",")),
 		param: values,
 	}
 }
 
 func Between(field string, start interface{}, end interface{}) *WhereCondition {
 	return &WhereCondition{
-		where: fmt.Sprintf("`%s` BETWEEN ? AND ?", field),
+		where: fmt.Sprintf("%s BETWEEN ? AND ?", field),
 		param: []interface{}{start, end},
 	}
 }
 
 func NotBetween(field string, start interface{}, end interface{}) *WhereCondition {
 	return &WhereCondition{
-		where: fmt.Sprintf("`%s` NOT BETWEEN ? AND ?", field),
+		where: fmt.Sprintf("%s NOT BETWEEN ? AND ?", field),
 		param: []interface{}{start, end},
 	}
 }
