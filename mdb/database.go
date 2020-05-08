@@ -1,6 +1,7 @@
 package mdb
 
 import (
+	"log"
 	"database/sql"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
@@ -348,7 +349,7 @@ func (dc *Conn) Exec(query string, args ...interface{}) (sql.Result, error) {
 
 func (dc *Conn) Prepare(query string) *dbStmt {
 	if len(query) < 6 {
-		return &dbStmt{lerr: fmt.Errorf("Prepare query sql too short '%s'", query)}
+		return &dbStmt{lerr: fmt.Errorf("prepare sql too short '%s'", query)}
 	}
 
 	var (
@@ -415,10 +416,15 @@ type Row struct {
 }
 
 func (r *Row) Scan(dest ...interface{}) error {
-	defer r.rows.rows.Close()
+	if nil == r.rows.rows {
+		log.Print("scan() nil == r.rows.rows ", r.rows.lerr)
+	} else {
+		log.Print("scan() nil != r.rows.rows", r.rows.lerr)
+	}
 	if r.rows.lerr != nil {
 		return r.rows.lerr
 	}
+	defer r.rows.rows.Close()
 
 	if !r.rows.rows.Next() {
 		if err := r.rows.rows.Err(); err != nil {
@@ -431,10 +437,15 @@ func (r *Row) Scan(dest ...interface{}) error {
 }
 
 func (r *Row) ScanStruct(out interface{}) error {
-	defer r.rows.rows.Close()
+	if nil == r.rows.rows {
+		log.Print("ScanStruct() nil == r.rows.rows ", r.rows.lerr)
+	} else {
+		log.Print("ScanStruct() nil != r.rows.rows", r.rows.lerr)
+	}
 	if r.rows.lerr != nil {
 		return r.rows.lerr
 	}
+	defer r.rows.rows.Close()
 
 	if !r.rows.rows.Next() {
 		if err := r.rows.rows.Err(); err != nil {
