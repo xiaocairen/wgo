@@ -16,11 +16,11 @@ const (
 )
 
 var (
-	svcInstance    *Service
-	onceNewService sync.Once
+	svcerInst  *Servicer
+	onceNewSvc sync.Once
 )
 
-type dbTable struct {
+type table struct {
 	target       interface{}
 	targetType   reflect.Type
 	structName   string
@@ -31,38 +31,98 @@ type dbTable struct {
 	primaryField reflect.StructField
 }
 
-type Service struct {
-	db       *mdb.DB
-	dbTables []*dbTable
+type Servicer struct {
+	db     *mdb.DB
+	tables []*table
 }
 
-func NewService(db *mdb.DB) *Service {
-	onceNewService.Do(func() {
-		svcInstance = &Service{db: db}
+func NewServicer(db *mdb.DB) *Servicer {
+	var first = false
+	onceNewSvc.Do(func() {
+		first = true
+		svcerInst = &Servicer{db: db}
 	})
-	return svcInstance
-}
 
-func (svc *Service) Registe(tc TableCollection) {
-	if len(svc.dbTables) == 0 && nil != tc {
-		tc.call(&TableRegister{service: svc})
+	if first {
+		return svcerInst
+	} else {
+		return nil
 	}
 }
 
-func (svc *Service) DB() *mdb.DB {
-	return svc.db
+func (s *Servicer) Registe(tc TableCollection) {
+	if len(s.tables) == 0 && nil != tc {
+		tc.call(&TableRegister{svcer: s})
+	}
+}
+
+func (s *Servicer) New() *Service {
+	return &Service{
+		db:     s.db,
+		conn:   s.db.GetConn(),
+		tx:     nil,
+		in:     false,
+		tables: s.tables,
+	}
+}
+
+type Service struct {
+	db     *mdb.DB
+	conn   *mdb.Conn
+	tx     *mdb.Tx
+	in     bool
+	tables []*table
+}
+
+func (s *Service) DB() *mdb.DB {
+	return s.db
+}
+
+func (s *Service) SelectDbHost(hostname string) {
+	s.conn = s.db.GetConnByName(hostname)
+}
+
+func (s *Service) Begin() {
+	s.tx = s.conn.Begin()
+	s.in = true
+}
+
+func (s *Service) InTransaction() bool {
+	return s.in
+}
+
+func (s *Service) Commit() error {
+	if !s.in {
+		return nil
+	}
+
+	err := s.tx.Commit()
+	s.in = false
+	s.tx = nil
+	return err
+}
+
+func (s *Service) Rollback() error {
+	if !s.in {
+		return nil
+	}
+
+	err := s.tx.Rollback()
+	s.in = false
+	s.tx = nil
+	return err
 }
 
 // target must be ptr to struct
-func (svc *Service) NewDBService(target interface{}) *dbService {
-	dbt, typ, err := svc.loadTableByTarget(target)
+func (s *Service) New(target interface{}) *svc {
+	dbt, typ, err := s.loadTableByTarget(target)
 	if err != nil {
-		return &dbService{newErr: err}
+		return &svc{newErr: err}
 	}
 
-	return &dbService{
-		conn:       svc.db.GetConn(),
-		service:    svc,
+	return &svc{
+		conn:       s.conn,
+		service:    s,
 		table:      dbt,
 		target:     target,
 		targetType: typ,
@@ -70,25 +130,7 @@ func (svc *Service) NewDBService(target interface{}) *dbService {
 	}
 }
 
-// target must be ptr to struct
-// hostDbName is field host_db_name of db config in app.json
-func (svc *Service) NewDBServiceByHostDbName(target interface{}, hostDbName string) *dbService {
-	dbt, typ, err := svc.loadTableByTarget(target)
-	if err != nil {
-		return &dbService{newErr: err}
-	}
-
-	return &dbService{
-		conn:       svc.db.GetConnByName(hostDbName),
-		service:    svc,
-		table:      dbt,
-		target:     target,
-		targetType: typ,
-		newErr:     nil,
-	}
-}
-
-func (svc *Service) loadTableByTarget(target interface{}) (*dbTable, reflect.Type, error) {
+func (s *Service) loadTableByTarget(target interface{}) (*table, reflect.Type, error) {
 	targetType := reflect.TypeOf(target)
 	structName := targetType.String()
 	if targetType.Kind() != reflect.Ptr {
@@ -99,8 +141,8 @@ func (svc *Service) loadTableByTarget(target interface{}) (*dbTable, reflect.Typ
 		return nil, nil, fmt.Errorf("target '%s' must be ptr to struct", structName)
 	}
 
-	var dbt *dbTable
-	for _, t := range svc.dbTables {
+	var dbt *table
+	for _, t := range s.tables {
 		if t.structName == structName {
 			dbt = t
 			break
@@ -112,8 +154,8 @@ func (svc *Service) loadTableByTarget(target interface{}) (*dbTable, reflect.Typ
 	return dbt, targetTypeElem, nil
 }
 
-func (svc *Service) loadTableByName(structName string) *dbTable {
-	for _, dbt := range svc.dbTables {
+func (s *Service) loadTableByName(structName string) *table {
+	for _, dbt := range s.tables {
 		if dbt.structName == structName {
 			return dbt
 		}
@@ -121,67 +163,46 @@ func (svc *Service) loadTableByName(structName string) *dbTable {
 	return nil
 }
 
-type dbService struct {
+type svc struct {
 	conn       *mdb.Conn
-	tx         *mdb.Tx
-	intx       bool
 	service    *Service
-	table      *dbTable
+	table      *table
 	target     interface{}
 	targetType reflect.Type
 	newErr     error
 }
 
-func (ds *dbService) Begin() {
-	ds.tx = ds.conn.Begin()
-	ds.intx = true
-}
-
-func (ds *dbService) Rollback() error {
-	err := ds.tx.Rollback()
-	ds.tx = nil
-	ds.intx = false
-	return err
-}
-
-func (ds *dbService) Commit() error {
-	err := ds.tx.Commit()
-	ds.tx = nil
-	ds.intx = false
-	return err
-}
-
-func (ds *dbService) Create() (id int64, err error) {
-	if ds.newErr != nil {
-		err = ds.newErr
-		return
+func (s *svc) Create() (int64, error) {
+	if s.newErr != nil {
+		return 0, s.newErr
 	}
 
 	var (
-		fv, rv, _ = ds.getFieldValues()
+		fv, rv, _ = s.getFieldValues()
 		res       sql.Result
+		err       error
 		insert    = msql.Insert{
-			Into:       ds.table.tableName,
+			Into:       s.table.tableName,
 			FieldValue: fv,
 		}
 	)
-	if ds.intx {
-		res, err = ds.tx.Insert(insert).Exec()
+	if s.service.in {
+		res, err = s.service.tx.Insert(insert).Exec()
 	} else {
-		res, err = ds.conn.Insert(insert).Exec()
+		res, err = s.conn.Insert(insert).Exec()
 	}
 	if err != nil {
-		return
+		return 0, err
 	}
 
-	id, _ = res.LastInsertId()
-	rv.FieldByName(ds.table.primaryField.Name).Set(reflect.ValueOf(id))
-	return
+	id, _ := res.LastInsertId()
+	rv.FieldByName(s.table.primaryField.Name).Set(reflect.ValueOf(id))
+	return id, nil
 }
 
-func (ds *dbService) CreateMulti(data []map[string]interface{}) (num int, err error) {
-	if ds.newErr != nil {
-		err = ds.newErr
+func (s *svc) CreateMulti(data []map[string]interface{}) (num int, err error) {
+	if s.newErr != nil {
+		err = s.newErr
 		return
 	}
 
@@ -197,276 +218,278 @@ func (ds *dbService) CreateMulti(data []map[string]interface{}) (num int, err er
 		fields = append(fields, k)
 		placeholder = append(placeholder, "?")
 	}
-	query := fmt.Sprintf("INSERT INTO `%s` (`%s`) VALUES (%s)", ds.table.tableName, strings.Join(fields, "`, `"), strings.Join(placeholder, ", "))
+	query := fmt.Sprintf("INSERT INTO `%s` (`%s`) VALUES (%s)", s.table.tableName, strings.Join(fields, "`, `"), strings.Join(placeholder, ", "))
 
-	tx := ds.conn.Begin()
-	stmt := tx.Prepare(query)
-	for _, m := range data {
-		var values []interface{}
-		for _, f := range fields {
-			values = append(values, m[f])
-		}
+	if s.service.in {
+		stmt := s.service.tx.Prepare(query)
+		for _, m := range data {
+			var values []interface{}
+			for _, f := range fields {
+				values = append(values, m[f])
+			}
 
-		_, err = stmt.Exec(values...)
-		if err != nil {
-			tx.Rollback()
-			return
+			if _, err = stmt.Exec(values...); err != nil {
+				return
+			}
 		}
+	} else {
+		tx := s.conn.Begin()
+		stmt := tx.Prepare(query)
+		for _, m := range data {
+			var values []interface{}
+			for _, f := range fields {
+				values = append(values, m[f])
+			}
+
+			if _, err = stmt.Exec(values...); err != nil {
+				tx.Rollback()
+				return
+			}
+		}
+		tx.Commit()
 	}
-	tx.Commit()
 
 	return
 }
 
-func (ds *dbService) Update() (int64, error) {
-	if ds.newErr != nil {
-		return 0, ds.newErr
+func (s *svc) Update() (int64, error) {
+	if s.newErr != nil {
+		return 0, s.newErr
 	}
 
 	var (
-		fv, _, pv = ds.getFieldValues()
+		fv, _, pv = s.getFieldValues()
 		res       sql.Result
 		err       error
 		update    = msql.Update{
-			Table:     msql.Table{Table: ds.table.tableName},
+			Table:     msql.Table{Table: s.table.tableName},
 			SetValues: fv,
-			Where:     msql.Where(ds.table.primaryKey, "=", pv),
+			Where:     msql.Where(s.table.primaryKey, "=", pv),
 		}
 	)
-	if ds.intx {
-		res, err = ds.tx.Update(update).Exec()
+	if s.service.in {
+		res, err = s.service.tx.Update(update).Exec()
 	} else {
-		res, err = ds.conn.Update(update).Exec()
+		res, err = s.conn.Update(update).Exec()
 	}
 	if err != nil {
 		return 0, err
 	}
 
-	ar, _ := res.RowsAffected()
-	return ar, err
+	return res.RowsAffected()
 }
 
-func (ds *dbService) UpdateByPrimaryKey(value int64, data map[string]interface{}) (int64, error) {
-	if ds.newErr != nil {
-		return 0, ds.newErr
+func (s *svc) UpdateByPrimaryKey(value int64, data map[string]interface{}) (int64, error) {
+	if s.newErr != nil {
+		return 0, s.newErr
 	}
 
 	var (
 		res    sql.Result
 		err    error
 		update = msql.Update{
-			Table:     msql.Table{Table: ds.table.tableName},
+			Table:     msql.Table{Table: s.table.tableName},
 			SetValues: data,
-			Where:     msql.Where(ds.table.primaryKey, "=", value),
+			Where:     msql.Where(s.table.primaryKey, "=", value),
 		}
 	)
-	if ds.intx {
-		res, err = ds.tx.Update(update).Exec()
+	if s.service.in {
+		res, err = s.service.tx.Update(update).Exec()
 	} else {
-		res, err = ds.conn.Update(update).Exec()
+		res, err = s.conn.Update(update).Exec()
 	}
 	if err != nil {
 		return 0, err
 	}
 
-	ar, _ := res.RowsAffected()
-	return ar, err
+	return res.RowsAffected()
 }
 
-func (ds *dbService) UpdateByPrimaryKeys(values []interface{}, data map[string]interface{}) (int64, error) {
-	if ds.newErr != nil {
-		return 0, ds.newErr
+func (s *svc) UpdateByPrimaryKeys(values []interface{}, data map[string]interface{}) (int64, error) {
+	if s.newErr != nil {
+		return 0, s.newErr
 	}
 
 	var (
-		res    sql.Result
-		err    error
+		res sql.Result
+		err error
 		update = msql.Update{
-			Table:     msql.Table{Table: ds.table.tableName},
+			Table:     msql.Table{Table: s.table.tableName},
 			SetValues: data,
-			Where:     msql.In(ds.table.primaryKey, values),
+			Where:     msql.In(s.table.primaryKey, values),
 		}
 	)
-	if ds.intx {
-		res, err = ds.tx.Update(update).Exec()
+	if s.service.in {
+		res, err = s.service.tx.Update(update).Exec()
 	} else {
-		res, err = ds.conn.Update(update).Exec()
+		res, err = s.conn.Update(update).Exec()
 	}
 	if err != nil {
 		return 0, err
 	}
 
-	ar, _ := res.RowsAffected()
-	return ar, err
+	return res.RowsAffected()
 }
 
-func (ds *dbService) UpdateByField(field string, value interface{}, data map[string]interface{}) (int64, error) {
-	if ds.newErr != nil {
-		return 0, ds.newErr
+func (s *svc) UpdateByField(field string, value interface{}, data map[string]interface{}) (int64, error) {
+	if s.newErr != nil {
+		return 0, s.newErr
 	}
 
 	var (
-		res    sql.Result
-		err    error
+		res sql.Result
+		err error
 		update = msql.Update{
-			Table:     msql.Table{Table: ds.table.tableName},
+			Table:     msql.Table{Table: s.table.tableName},
 			SetValues: data,
 			Where:     msql.Where(field, "=", value),
 		}
 	)
-	if ds.intx {
-		res, err = ds.tx.Update(update).Exec()
+	if s.service.in {
+		res, err = s.service.tx.Update(update).Exec()
 	} else {
-		res, err = ds.conn.Update(update).Exec()
+		res, err = s.conn.Update(update).Exec()
 	}
 	if err != nil {
 		return 0, err
 	}
 
-	ar, _ := res.RowsAffected()
-	return ar, err
+	return res.RowsAffected()
 }
 
-func (ds *dbService) Delete() (int64, error) {
-	if ds.newErr != nil {
-		return 0, ds.newErr
+func (s *svc) Delete() (int64, error) {
+	if s.newErr != nil {
+		return 0, s.newErr
 	}
 
 	var (
-		pv  = ds.GetPrimaryVal()
 		res sql.Result
 		err error
 		del = msql.Delete{
-			From:  ds.table.tableName,
-			Where: msql.Where(ds.table.primaryKey, "=", pv),
+			From:  s.table.tableName,
+			Where: msql.Where(s.table.primaryKey, "=", s.GetPrimaryVal()),
 		}
 	)
-	if ds.intx {
-		res, err = ds.tx.Delete(del).Exec()
+	if s.service.in {
+		res, err = s.service.tx.Delete(del).Exec()
 	} else {
-		res, err = ds.conn.Delete(del).Exec()
+		res, err = s.conn.Delete(del).Exec()
 	}
 	if err != nil {
 		return 0, err
 	}
 
-	ar, _ := res.RowsAffected()
-	return ar, err
+	return res.RowsAffected()
 }
 
-func (ds *dbService) DeleteByPrimaryKey(value interface{}) (int64, error) {
-	if ds.newErr != nil {
-		return 0, ds.newErr
+func (s *svc) DeleteByPrimaryKey(value interface{}) (int64, error) {
+	if s.newErr != nil {
+		return 0, s.newErr
 	}
 
 	var (
 		res sql.Result
 		err error
 		del = msql.Delete{
-			From:  ds.table.tableName,
-			Where: msql.Where(ds.table.primaryKey, "=", value),
+			From:  s.table.tableName,
+			Where: msql.Where(s.table.primaryKey, "=", value),
 		}
 	)
-	if ds.intx {
-		res, err = ds.tx.Delete(del).Exec()
+	if s.service.in {
+		res, err = s.service.tx.Delete(del).Exec()
 	} else {
-		res, err = ds.conn.Delete(del).Exec()
+		res, err = s.conn.Delete(del).Exec()
 	}
 	if err != nil {
 		return 0, err
 	}
 
-	ar, _ := res.RowsAffected()
-	return ar, err
+	return res.RowsAffected()
 }
 
-func (ds *dbService) DeleteByPrimaryKeys(values []interface{}) (int64, error) {
-	if ds.newErr != nil {
-		return 0, ds.newErr
+func (s *svc) DeleteByPrimaryKeys(values []interface{}) (int64, error) {
+	if s.newErr != nil {
+		return 0, s.newErr
 	}
 
 	var (
 		res sql.Result
 		err error
 		del = msql.Delete{
-			From:  ds.table.tableName,
-			Where: msql.In(ds.table.primaryKey, values),
+			From:  s.table.tableName,
+			Where: msql.In(s.table.primaryKey, values),
 		}
 	)
-	if ds.intx {
-		res, err = ds.tx.Delete(del).Exec()
+	if s.service.in {
+		res, err = s.service.tx.Delete(del).Exec()
 	} else {
-		res, err = ds.conn.Delete(del).Exec()
+		res, err = s.conn.Delete(del).Exec()
 	}
 	if err != nil {
 		return 0, err
 	}
 
-	ar, _ := res.RowsAffected()
-	return ar, err
+	return res.RowsAffected()
 }
 
-func (ds *dbService) DeleteByField(field string, value interface{}) (int64, error) {
-	if ds.newErr != nil {
-		return 0, ds.newErr
+func (s *svc) DeleteByField(field string, value interface{}) (int64, error) {
+	if s.newErr != nil {
+		return 0, s.newErr
 	}
 
 	var (
 		res sql.Result
 		err error
 		del = msql.Delete{
-			From:  ds.table.tableName,
+			From:  s.table.tableName,
 			Where: msql.Where(field, "=", value),
 		}
 	)
-	if ds.intx {
-		res, err = ds.tx.Delete(del).Exec()
+	if s.service.in {
+		res, err = s.service.tx.Delete(del).Exec()
 	} else {
-		res, err = ds.conn.Delete(del).Exec()
+		res, err = s.conn.Delete(del).Exec()
 	}
 	if err != nil {
 		return 0, err
 	}
 
-	ar, _ := res.RowsAffected()
-	return ar, err
+	return res.RowsAffected()
 }
 
-func (ds *dbService) Load(with ...string) error {
-	if ds.newErr != nil {
-		return ds.newErr
+func (s *svc) Load(with ...string) error {
+	if s.newErr != nil {
+		return s.newErr
 	}
 
-	pv := ds.GetPrimaryVal()
-	err := ds.conn.Select(msql.Select{
-		Select: msql.Fields(ds.table.tableFields...),
-		From:   msql.Table{Table: ds.table.tableName},
-		Where:  msql.Where(ds.table.primaryKey, "=", pv),
-	}).QueryRow().ScanStruct(ds.target)
-
+	err := s.conn.Select(msql.Select{
+		Select: msql.Fields(s.table.tableFields...),
+		From:   msql.Table{Table: s.table.tableName},
+		Where:  msql.Where(s.table.primaryKey, "=", s.GetPrimaryVal()),
+	}).QueryRow().ScanStruct(s.target)
 	if nil != err {
 		return err
 	}
 
-	return ds.loadWith(with...)
+	return s.loadWith(with...)
 }
 
-func (ds *dbService) loadWith(with ...string) error {
+func (s *svc) loadWith(with ...string) error {
 	if len(with) == 0 {
 		return nil
 	}
 
-	rvalue := reflect.ValueOf(ds.target).Elem()
+	rvalue := reflect.ValueOf(s.target).Elem()
 	for _, sn := range with {
 		var field *reflect.StructField
-		for _, f := range ds.table.structFields {
+		for _, f := range s.table.structFields {
 			if sn == f.Name {
 				field = &f
 				break
 			}
 		}
 		if nil == field {
-			return fmt.Errorf("unkown field '%s' in %s", sn, ds.table.structName)
+			return fmt.Errorf("unkown field '%s' in %s", sn, s.table.structName)
 		}
 
 		var (
@@ -475,19 +498,19 @@ func (ds *dbService) loadWith(with ...string) error {
 			mfield *reflect.StructField
 		)
 		if "" == mkey {
-			return fmt.Errorf("not found mkey tag in field '%s' of %s", sn, ds.table.structName)
+			return fmt.Errorf("not found mkey tag in field '%s' of %s", sn, s.table.structName)
 		}
 		if "" == fkey {
-			return fmt.Errorf("not found fkey tag in field '%s' of %s", sn, ds.table.structName)
+			return fmt.Errorf("not found fkey tag in field '%s' of %s", sn, s.table.structName)
 		}
-		for _, f := range ds.table.structFields {
+		for _, f := range s.table.structFields {
 			if mkey == f.Tag.Get(mdb.STRUCT_TAG) {
 				mfield = &f
 				break
 			}
 		}
 		if nil == mfield {
-			return fmt.Errorf("not found mkey tag '%s' relate field of %s", mkey, ds.table.structName)
+			return fmt.Errorf("not found mkey tag '%s' relate field of %s", mkey, s.table.structName)
 		}
 
 		var (
@@ -495,13 +518,13 @@ func (ds *dbService) loadWith(with ...string) error {
 			ivalue = rvalue.FieldByName(mfield.Name).Interface()
 		)
 		if reflect.Ptr == kind {
-			target := ds.service.loadTableByName(field.Type.String())
+			target := s.service.loadTableByName(field.Type.String())
 			if nil == target {
 				return fmt.Errorf("not found relation table struct '%s'", field.Type.String())
 			}
 
 			out := reflect.New(field.Type.Elem()).Interface()
-			if e := ds.conn.Select(msql.Select{
+			if e := s.conn.Select(msql.Select{
 				Select: msql.Fields(target.tableFields...),
 				From:   msql.Table{Table: target.tableName},
 				Where:  msql.Where(fkey, "=", ivalue),
@@ -511,12 +534,12 @@ func (ds *dbService) loadWith(with ...string) error {
 
 			rvalue.FieldByName(field.Name).Set(reflect.ValueOf(out))
 		} else if reflect.Slice == kind {
-			target := ds.service.loadTableByName(field.Type.String()[2:])
+			target := s.service.loadTableByName(field.Type.String()[2:])
 			if nil == target {
 				return fmt.Errorf("not found relation table struct '%s'", field.Type.String()[2:])
 			}
 
-			all, err := ds.conn.Select(msql.Select{
+			all, err := s.conn.Select(msql.Select{
 				Select: msql.Fields(target.tableFields...),
 				From:   msql.Table{Table: target.tableName},
 				Where:  msql.Where(fkey, "=", ivalue),
@@ -540,99 +563,99 @@ func (ds *dbService) loadWith(with ...string) error {
 	return nil
 }
 
-func (ds *dbService) LoadOne(where *msql.WhereCondition, orderBy []string) error {
-	if ds.newErr != nil {
-		return ds.newErr
+func (s *svc) LoadOne(where *msql.WhereCondition, orderBy []string) error {
+	if s.newErr != nil {
+		return s.newErr
 	}
 
-	rows := ds.conn.Select(msql.Select{
-		Select:  msql.Fields(ds.table.tableFields...),
-		From:    msql.Table{Table: ds.table.tableName},
+	rows := s.conn.Select(msql.Select{
+		Select:  msql.Fields(s.table.tableFields...),
+		From:    msql.Table{Table: s.table.tableName},
 		Where:   where,
 		OrderBy: orderBy,
 		Limit:   msql.Limit(1),
 	}).Query()
 	defer rows.Close()
 
-	return rows.ScanStruct(ds.target)
+	return rows.ScanStruct(s.target)
 }
 
 // param where use func msql.Where, msql.And, msql.Or, msql.In, msql.NotIn,
 // msql.Between, msql.NotBetween to generate.
 // or use nil mean no WhereCondition
-func (ds *dbService) LoadAll(where *msql.WhereCondition, orderBy []string) ([]interface{}, error) {
-	if ds.newErr != nil {
-		return nil, ds.newErr
+func (s *svc) LoadAll(where *msql.WhereCondition, orderBy []string) ([]interface{}, error) {
+	if s.newErr != nil {
+		return nil, s.newErr
 	}
 
-	return ds.conn.Select(msql.Select{
-		Select:  msql.Fields(ds.table.tableFields...),
-		From:    msql.Table{Table: ds.table.tableName},
+	return s.conn.Select(msql.Select{
+		Select:  msql.Fields(s.table.tableFields...),
+		From:    msql.Table{Table: s.table.tableName},
 		Where:   where,
 		OrderBy: orderBy,
-	}).Query().ScanStructAll(ds.target)
+	}).Query().ScanStructAll(s.target)
 }
 
 // param where use func msql.Where, msql.And, msql.Or, msql.In, msql.NotIn,
 // msql.Between, msql.NotBetween to generate.
 // or use nil mean no WhereCondition
-func (ds *dbService) LoadBy(where *msql.WhereCondition, orderBy []string, limit, offset uint64) ([]interface{}, error) {
-	if ds.newErr != nil {
-		return nil, ds.newErr
+func (s *svc) LoadBy(where *msql.WhereCondition, orderBy []string, limit, offset uint64) ([]interface{}, error) {
+	if s.newErr != nil {
+		return nil, s.newErr
 	}
 
-	return ds.conn.Select(msql.Select{
-		Select:  msql.Fields(ds.table.tableFields...),
-		From:    msql.Table{Table: ds.table.tableName},
+	return s.conn.Select(msql.Select{
+		Select:  msql.Fields(s.table.tableFields...),
+		From:    msql.Table{Table: s.table.tableName},
 		Where:   where,
 		OrderBy: orderBy,
 		Limit:   msql.LimitOffset(offset, limit),
-	}).Query().ScanStructAll(ds.target)
+	}).Query().ScanStructAll(s.target)
 }
 
-func (ds *dbService) LoadPaginator(selection *msql.Select, curPage, pageSize uint64) (*Paginator, error) {
-	if ds.newErr != nil {
-		return nil, ds.newErr
+func (s *svc) LoadPaginator(selection *msql.Select, curPage, pageSize uint64) (*Paginator, error) {
+	if s.newErr != nil {
+		return nil, s.newErr
 	}
 
 	if nil == selection {
 		selection = &msql.Select{
-			Select:  msql.Fields(ds.table.tableFields...),
-			From:    msql.Table{Table: ds.table.tableName},
-			OrderBy: msql.OrderBy(ds.table.primaryKey + " DESC"),
+			Select:  msql.Fields(s.table.tableFields...),
+			From:    msql.Table{Table: s.table.tableName},
+			OrderBy: msql.OrderBy(s.table.primaryKey + " DESC"),
 		}
 	}
 
 	return &Paginator{
-		Conn:      ds.conn,
+		Conn:      s.conn,
 		Selection: selection,
 		CurPage:   curPage,
 		PerSize:   pageSize,
 	}, nil
 }
 
-func (ds *dbService) GetPrimaryKey() string {
-	return ds.table.primaryKey
+func (s *svc) GetPrimaryKey() string {
+	return s.table.primaryKey
 }
 
-func (ds *dbService) GetPrimaryVal() interface{} {
-	return reflect.ValueOf(ds.target).Elem().FieldByName(ds.table.primaryField.Name).Interface()
+func (s *svc) GetPrimaryVal() interface{} {
+	return reflect.ValueOf(s.target).Elem().FieldByName(s.table.primaryField.Name).Interface()
 }
 
-func (ds *dbService) GetTableName() string {
-	return ds.table.tableName
+func (s *svc) GetTableName() string {
+	return s.table.tableName
 }
 
-func (ds *dbService) GetTableFields() []string {
-	return ds.table.tableFields
+func (s *svc) GetTableFields() []string {
+	return s.table.tableFields
 }
 
-func (ds *dbService) getFieldValues() (fieldValues map[string]interface{}, targetValue reflect.Value, primaryValue int64) {
-	targetValue = reflect.ValueOf(ds.target).Elem()
-	for i := 0; i < ds.targetType.NumField(); i++ {
-		tt := ds.targetType.Field(i)
+func (s *svc) getFieldValues() (fieldValues map[string]interface{}, targetValue reflect.Value, primaryValue int64) {
+	targetValue = reflect.ValueOf(s.target).Elem()
+	for i := 0; i < s.targetType.NumField(); i++ {
+		tt := s.targetType.Field(i)
 		fv := targetValue.FieldByName(tt.Name)
-		if tt.Name == ds.table.primaryField.Name {
+		if tt.Name == s.table.primaryField.Name {
 			primaryValue = reflect.Indirect(fv).Int()
 		} else {
 			fieldValues[tt.Tag.Get(mdb.STRUCT_TAG)] = fv.Interface()

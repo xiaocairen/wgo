@@ -27,7 +27,7 @@ type Finally func(w http.ResponseWriter, r *http.Request)
 type app struct {
 	debug                        bool
 	configurator                 *config.Configurator
-	service                      *service.Service
+	servicer                     *service.Servicer
 	routeCollection              RouteCollection
 	routeControllerInjectorChain []RouteControllerInjector
 	reqControllerInjectorChain   []RequestControllerInjector
@@ -82,7 +82,7 @@ func init() {
 			return
 		}
 
-		appInstance.service = service.NewService(db)
+		appInstance.servicer = service.NewServicer(db)
 	}
 
 	initLogger()
@@ -104,10 +104,9 @@ func (this *app) Run() {
 
 		r := &router{RouteCollection: this.routeCollection}
 		s := &server{app: this, Configurator: this.configurator, Router: r}
-		this.AddRouteControllerInjector(s)
-		r.init(this.routeControllerInjectorChain)
+		r.init([]RouteControllerInjector{s})
 
-		this.service.Registe(this.tableCollection)
+		this.servicer.Registe(this.tableCollection)
 		this.startTaskers()
 
 		mux := http.NewServeMux()
@@ -146,7 +145,7 @@ func (this *app) startTaskers() {
 					log.Printf("%s", e)
 				}
 			}()
-			tasker(this.configurator, this.service)
+			tasker(this.configurator, this.servicer.New())
 		}()
 	}
 }
@@ -167,9 +166,9 @@ func (this *app) AddRequestControllerInjector(injector RequestControllerInjector
 	this.reqControllerInjectorChain = append(this.reqControllerInjectorChain, injector)
 }
 
-func (this *app) AddRouteControllerInjector(injector RouteControllerInjector) {
-	this.routeControllerInjectorChain = append(this.routeControllerInjectorChain, injector)
-}
+//func (this *app) AddRouteControllerInjector(injector RouteControllerInjector) {
+//	this.routeControllerInjectorChain = append(this.routeControllerInjectorChain, injector)
+//}
 
 func (this *app) SetHtmlTemplate(tpl *template.Template) {
 	if nil == this.htmlTemplate {
@@ -191,10 +190,6 @@ func (this *app) GetConfigurator() *config.Configurator {
 	return this.configurator
 }
 
-func (this *app) GetService() *service.Service {
-	return this.service
-}
-
 func initLogger() {
 	if _, err := os.Stat("log"); nil != err {
 		if !os.IsExist(err) {
@@ -204,7 +199,7 @@ func initLogger() {
 		}
 	}
 
-	f, err := os.OpenFile("log/wgo.log", os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
+	f, err := os.OpenFile("log/wgo.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Panic(err)
 	}

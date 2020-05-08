@@ -17,16 +17,16 @@ func (fn TableCollection) call(tr *TableRegister) {
 }
 
 type TableRegister struct {
-	service *Service
+	svcer *Servicer
 }
 
 func (sr *TableRegister) RegisteTables(tables []interface{}) {
 	for _, t := range tables {
-		sr.service.dbTables = append(sr.service.dbTables, sr.registe(t))
+		sr.svcer.tables = append(sr.svcer.tables, sr.registe(t))
 	}
 }
 
-func (tr *TableRegister) registe(target interface{}) *dbTable {
+func (tr *TableRegister) registe(target interface{}) *table {
 	t := reflect.TypeOf(target)
 	if t.Kind() != reflect.Ptr {
 		panic(fmt.Sprintf("service '%s' must be ptr to struct", t.String()))
@@ -40,7 +40,7 @@ func (tr *TableRegister) registe(target interface{}) *dbTable {
 	dotPos := strings.LastIndex(name, ".")
 	tableName := tool.Camel2Underline(name[dotPos+1:])
 
-	dbt := &dbTable{
+	dbt := &table{
 		target:     target,
 		targetType: t,
 		structName: t.String(),
