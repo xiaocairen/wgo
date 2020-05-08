@@ -28,7 +28,8 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	route, params, notfound := this.Router.getHandler(r)
 	if nil != notfound {
-		log.Panic(notfound)
+		w.Write([]byte(notfound.Error()))
+		return
 	}
 
 	req := &HttpRequest{Request: r}
