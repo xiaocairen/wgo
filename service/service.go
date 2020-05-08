@@ -1,6 +1,7 @@
 package service
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/xiaocairen/wgo/mdb"
 	"github.com/xiaocairen/wgo/mdb/msql"
@@ -122,11 +123,32 @@ func (svc *Service) loadTableByName(structName string) *dbTable {
 
 type dbService struct {
 	conn       *mdb.Conn
+	tx         *mdb.Tx
+	intx       bool
 	service    *Service
 	table      *dbTable
 	target     interface{}
 	targetType reflect.Type
 	newErr     error
+}
+
+func (ds *dbService) Begin() {
+	ds.tx = ds.conn.Begin()
+	ds.intx = true
+}
+
+func (ds *dbService) Rollback() error {
+	err := ds.tx.Rollback()
+	ds.tx = nil
+	ds.intx = false
+	return err
+}
+
+func (ds *dbService) Commit() error {
+	err := ds.tx.Commit()
+	ds.tx = nil
+	ds.intx = false
+	return err
 }
 
 func (ds *dbService) Create() (id int64, err error) {
@@ -135,11 +157,19 @@ func (ds *dbService) Create() (id int64, err error) {
 		return
 	}
 
-	fv, rv, _ := ds.getFieldValues()
-	res, err := ds.conn.Insert(msql.Insert{
-		Into:       ds.table.tableName,
-		FieldValue: fv,
-	}).Exec()
+	var (
+		fv, rv, _ = ds.getFieldValues()
+		res       sql.Result
+		insert    = msql.Insert{
+			Into:       ds.table.tableName,
+			FieldValue: fv,
+		}
+	)
+	if ds.intx {
+		res, err = ds.tx.Insert(insert).Exec()
+	} else {
+		res, err = ds.conn.Insert(insert).Exec()
+	}
 	if err != nil {
 		return
 	}
@@ -193,12 +223,24 @@ func (ds *dbService) Update() (int64, error) {
 		return 0, ds.newErr
 	}
 
-	fv, _, pv := ds.getFieldValues()
-	res, err := ds.conn.Update(msql.Update{
-		Table:     msql.Table{Table: ds.table.tableName},
-		SetValues: fv,
-		Where:     msql.Where(ds.table.primaryKey, "=", pv),
-	}).Exec()
+	var (
+		fv, _, pv = ds.getFieldValues()
+		res       sql.Result
+		err       error
+		update    = msql.Update{
+			Table:     msql.Table{Table: ds.table.tableName},
+			SetValues: fv,
+			Where:     msql.Where(ds.table.primaryKey, "=", pv),
+		}
+	)
+	if ds.intx {
+		res, err = ds.tx.Update(update).Exec()
+	} else {
+		res, err = ds.conn.Update(update).Exec()
+	}
+	if err != nil {
+		return 0, err
+	}
 
 	ar, _ := res.RowsAffected()
 	return ar, err
@@ -209,11 +251,23 @@ func (ds *dbService) UpdateByPrimaryKey(value int64, data map[string]interface{}
 		return 0, ds.newErr
 	}
 
-	res, err := ds.conn.Update(msql.Update{
-		Table:     msql.Table{Table: ds.table.tableName},
-		SetValues: data,
-		Where:     msql.Where(ds.table.primaryKey, "=", value),
-	}).Exec()
+	var (
+		res    sql.Result
+		err    error
+		update = msql.Update{
+			Table:     msql.Table{Table: ds.table.tableName},
+			SetValues: data,
+			Where:     msql.Where(ds.table.primaryKey, "=", value),
+		}
+	)
+	if ds.intx {
+		res, err = ds.tx.Update(update).Exec()
+	} else {
+		res, err = ds.conn.Update(update).Exec()
+	}
+	if err != nil {
+		return 0, err
+	}
 
 	ar, _ := res.RowsAffected()
 	return ar, err
@@ -224,11 +278,23 @@ func (ds *dbService) UpdateByPrimaryKeys(values []interface{}, data map[string]i
 		return 0, ds.newErr
 	}
 
-	res, err := ds.conn.Update(msql.Update{
-		Table:     msql.Table{Table: ds.table.tableName},
-		SetValues: data,
-		Where:     msql.In(ds.table.primaryKey, values),
-	}).Exec()
+	var (
+		res    sql.Result
+		err    error
+		update = msql.Update{
+			Table:     msql.Table{Table: ds.table.tableName},
+			SetValues: data,
+			Where:     msql.In(ds.table.primaryKey, values),
+		}
+	)
+	if ds.intx {
+		res, err = ds.tx.Update(update).Exec()
+	} else {
+		res, err = ds.conn.Update(update).Exec()
+	}
+	if err != nil {
+		return 0, err
+	}
 
 	ar, _ := res.RowsAffected()
 	return ar, err
@@ -239,11 +305,23 @@ func (ds *dbService) UpdateByField(field string, value interface{}, data map[str
 		return 0, ds.newErr
 	}
 
-	res, err := ds.conn.Update(msql.Update{
-		Table:     msql.Table{Table: ds.table.tableName},
-		SetValues: data,
-		Where:     msql.Where(field, "=", value),
-	}).Exec()
+	var (
+		res    sql.Result
+		err    error
+		update = msql.Update{
+			Table:     msql.Table{Table: ds.table.tableName},
+			SetValues: data,
+			Where:     msql.Where(field, "=", value),
+		}
+	)
+	if ds.intx {
+		res, err = ds.tx.Update(update).Exec()
+	} else {
+		res, err = ds.conn.Update(update).Exec()
+	}
+	if err != nil {
+		return 0, err
+	}
 
 	ar, _ := res.RowsAffected()
 	return ar, err
@@ -254,11 +332,23 @@ func (ds *dbService) Delete() (int64, error) {
 		return 0, ds.newErr
 	}
 
-	pv := ds.GetPrimaryVal()
-	res, err := ds.conn.Delete(msql.Delete{
-		From:  ds.table.tableName,
-		Where: msql.Where(ds.table.primaryKey, "=", pv),
-	}).Exec()
+	var (
+		pv  = ds.GetPrimaryVal()
+		res sql.Result
+		err error
+		del = msql.Delete{
+			From:  ds.table.tableName,
+			Where: msql.Where(ds.table.primaryKey, "=", pv),
+		}
+	)
+	if ds.intx {
+		res, err = ds.tx.Delete(del).Exec()
+	} else {
+		res, err = ds.conn.Delete(del).Exec()
+	}
+	if err != nil {
+		return 0, err
+	}
 
 	ar, _ := res.RowsAffected()
 	return ar, err
@@ -269,10 +359,22 @@ func (ds *dbService) DeleteByPrimaryKey(value interface{}) (int64, error) {
 		return 0, ds.newErr
 	}
 
-	res, err := ds.conn.Delete(msql.Delete{
-		From:  ds.table.tableName,
-		Where: msql.Where(ds.table.primaryKey, "=", value),
-	}).Exec()
+	var (
+		res sql.Result
+		err error
+		del = msql.Delete{
+			From:  ds.table.tableName,
+			Where: msql.Where(ds.table.primaryKey, "=", value),
+		}
+	)
+	if ds.intx {
+		res, err = ds.tx.Delete(del).Exec()
+	} else {
+		res, err = ds.conn.Delete(del).Exec()
+	}
+	if err != nil {
+		return 0, err
+	}
 
 	ar, _ := res.RowsAffected()
 	return ar, err
@@ -283,10 +385,22 @@ func (ds *dbService) DeleteByPrimaryKeys(values []interface{}) (int64, error) {
 		return 0, ds.newErr
 	}
 
-	res, err := ds.conn.Delete(msql.Delete{
-		From:  ds.table.tableName,
-		Where: msql.In(ds.table.primaryKey, values),
-	}).Exec()
+	var (
+		res sql.Result
+		err error
+		del = msql.Delete{
+			From:  ds.table.tableName,
+			Where: msql.In(ds.table.primaryKey, values),
+		}
+	)
+	if ds.intx {
+		res, err = ds.tx.Delete(del).Exec()
+	} else {
+		res, err = ds.conn.Delete(del).Exec()
+	}
+	if err != nil {
+		return 0, err
+	}
 
 	ar, _ := res.RowsAffected()
 	return ar, err
@@ -297,10 +411,22 @@ func (ds *dbService) DeleteByField(field string, value interface{}) (int64, erro
 		return 0, ds.newErr
 	}
 
-	res, err := ds.conn.Delete(msql.Delete{
-		From:  ds.table.tableName,
-		Where: msql.Where(field, "=", value),
-	}).Exec()
+	var (
+		res sql.Result
+		err error
+		del = msql.Delete{
+			From:  ds.table.tableName,
+			Where: msql.Where(field, "=", value),
+		}
+	)
+	if ds.intx {
+		res, err = ds.tx.Delete(del).Exec()
+	} else {
+		res, err = ds.conn.Delete(del).Exec()
+	}
+	if err != nil {
+		return 0, err
+	}
 
 	ar, _ := res.RowsAffected()
 	return ar, err

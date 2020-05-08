@@ -306,9 +306,9 @@ type Conn struct {
 	wdb *dbres
 }
 
-func (dc *Conn) Begin() *dbTx {
+func (dc *Conn) Begin() *Tx {
 	tx, err := dc.wdb.db.Begin()
-	return &dbTx{
+	return &Tx{
 		tx:   tx,
 		lerr: err,
 	}
@@ -658,45 +658,45 @@ func (r *Rows) scanStruct(ote reflect.Type, ove reflect.Value, coltype []*sql.Co
 }
 
 // database transaction wrape *sql.Tx
-type dbTx struct {
+type Tx struct {
 	tx   *sql.Tx
 	lerr error
 }
 
-func (dt *dbTx) Insert(sql msql.Insert) *txModifyQuery {
+func (dt *Tx) Insert(sql msql.Insert) *txModifyQuery {
 	return &txModifyQuery{
 		tx:  dt,
 		sql: sql.Build(),
 	}
 }
 
-func (dt *dbTx) Update(sql msql.Update) *txModifyQuery {
+func (dt *Tx) Update(sql msql.Update) *txModifyQuery {
 	return &txModifyQuery{
 		tx:  dt,
 		sql: sql.Build(),
 	}
 }
 
-func (dt *dbTx) Delete(sql msql.Delete) *txModifyQuery {
+func (dt *Tx) Delete(sql msql.Delete) *txModifyQuery {
 	return &txModifyQuery{
 		tx:  dt,
 		sql: sql.Build(),
 	}
 }
 
-func (dt *dbTx) Prepare(query string) *dbStmt {
+func (dt *Tx) Prepare(query string) *dbStmt {
 	stmt, err := dt.tx.Prepare(query)
 	return &dbStmt{stmt: stmt, lerr: err}
 }
 
-func (dt *dbTx) Commit() error {
+func (dt *Tx) Commit() error {
 	if dt.lerr != nil {
 		return dt.lerr
 	}
 	return dt.tx.Commit()
 }
 
-func (dt *dbTx) Rollback() error {
+func (dt *Tx) Rollback() error {
 	if dt.lerr != nil {
 		return dt.lerr
 	}
@@ -704,7 +704,7 @@ func (dt *dbTx) Rollback() error {
 }
 
 type txModifyQuery struct {
-	tx  *dbTx
+	tx  *Tx
 	sql msql.SqlStatement
 }
 
