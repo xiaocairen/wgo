@@ -416,15 +416,12 @@ type Row struct {
 }
 
 func (r *Row) Scan(dest ...interface{}) error {
-	if nil == r.rows.rows {
-		log.Print("scan() nil == r.rows.rows ", r.rows.lerr)
-	} else {
-		log.Print("scan() nil != r.rows.rows", r.rows.lerr)
+	if r.rows.rows != nil {
+		defer r.rows.rows.Close()
 	}
 	if r.rows.lerr != nil {
 		return r.rows.lerr
 	}
-	defer r.rows.rows.Close()
 
 	if !r.rows.rows.Next() {
 		if err := r.rows.rows.Err(); err != nil {
@@ -437,15 +434,12 @@ func (r *Row) Scan(dest ...interface{}) error {
 }
 
 func (r *Row) ScanStruct(out interface{}) error {
-	if nil == r.rows.rows {
-		log.Print("ScanStruct() nil == r.rows.rows ", r.rows.lerr)
-	} else {
-		log.Print("ScanStruct() nil != r.rows.rows", r.rows.lerr)
+	if r.rows.rows != nil {
+		defer r.rows.rows.Close()
 	}
 	if r.rows.lerr != nil {
 		return r.rows.lerr
 	}
-	defer r.rows.rows.Close()
 
 	if !r.rows.rows.Next() {
 		if err := r.rows.rows.Err(); err != nil {
@@ -499,6 +493,9 @@ func (r *Rows) ColumnTypes() ([]*sql.ColumnType, error) {
 
 func (r *Rows) Scan(dest ...interface{}) error {
 	if r.lerr != nil {
+		if r.rows != nil {
+			r.rows.Close()
+		}
 		return r.lerr
 	}
 	return r.rows.Scan(dest...)
@@ -506,6 +503,9 @@ func (r *Rows) Scan(dest ...interface{}) error {
 
 func (r *Rows) ScanStruct(out interface{}) error {
 	if r.lerr != nil {
+		if r.rows != nil {
+			r.rows.Close()
+		}
 		return r.lerr
 	}
 
@@ -562,6 +562,9 @@ func (r *Rows) ScanStruct(out interface{}) error {
 
 func (r *Rows) ScanStructAll(in interface{}) ([]interface{}, error) {
 	if r.lerr != nil {
+		if r.rows != nil {
+			r.rows.Close()
+		}
 		return nil, r.lerr
 	}
 	defer r.rows.Close()
