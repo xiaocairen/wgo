@@ -651,6 +651,7 @@ func (s *svc) GetTableFields() []string {
 }
 
 func (s *svc) getFieldValues() (fieldValues map[string]interface{}, targetValue reflect.Value, primaryValue int64) {
+	fieldValues = make(map[string]interface{})
 	targetValue = reflect.ValueOf(s.target).Elem()
 	for i := 0; i < s.targetType.NumField(); i++ {
 		tt := s.targetType.Field(i)
