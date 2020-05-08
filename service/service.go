@@ -44,7 +44,7 @@ func NewService(db *mdb.DB) *Service {
 
 func (svc *Service) Registe(tc TableCollection) {
 	if len(svc.dbTables) == 0 && nil != tc {
-		tc.call(&TableRegister{service:svc})
+		tc.call(&TableRegister{service: svc})
 	}
 }
 
@@ -412,6 +412,23 @@ func (ds *dbService) loadWith(with ...string) error {
 		}
 	}
 	return nil
+}
+
+func (ds *dbService) LoadOne(where *msql.WhereCondition, orderBy []string) error {
+	if ds.newErr != nil {
+		return nil, ds.newErr
+	}
+
+	rows := ds.conn.Select(msql.Select{
+		Select:  msql.Fields(ds.table.tableFields...),
+		From:    msql.Table{Table: ds.table.tableName},
+		Where:   where,
+		OrderBy: orderBy,
+		Limit:   msql.Limit(1),
+	}).Query()
+	defer rows.Close()
+
+	return rows.ScanStruct(ds.target)
 }
 
 // param where use func msql.Where, msql.And, msql.Or, msql.In, msql.NotIn,
