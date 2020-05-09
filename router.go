@@ -245,20 +245,6 @@ type RouteCollection func(register *RouteRegister)
 
 func (fn RouteCollection) call(register *RouteRegister) {
 	fn(register)
-	/*fmt.Println("-------------------------------------------------------> GET")
-	for _, v := range register.get {
-		fmt.Println("subdomain => ", v.subdomain)
-		for _, e := range v.routeUnit {
-			//fmt.Printf("route.actionParams => %t\n", e.actionParams)
-			fmt.Println("route.path => ", e.path)
-			fmt.Println("route.pathlen => ", e.pathlen)
-			fmt.Printf("route.pathParams => %t\n", e.pathParams)
-			fmt.Println("route.method => ", e.method.Name)
-
-			fmt.Println("///////////////////////////////////////////////////")
-		}
-		fmt.Println("------------------------------------------------------->")
-	}*/
 }
 
 type RouteUnit struct {
@@ -268,13 +254,14 @@ type RouteUnit struct {
 }
 
 type routeUnit struct {
-	path          string
-	pathlen       int
-	pathParams    [][]interface{}
-	pathParamsNum int
-	controller    interface{}
-	method        reflect.Method
-	hasInit       bool
+	path           string
+	pathlen        int
+	pathParams     [][]interface{}
+	pathParamsNum  int
+	controller     interface{}
+	controllerName string
+	method         reflect.Method
+	hasInit        bool
 }
 
 type routeNamespace struct {
@@ -430,16 +417,17 @@ func parseRouteMethod(m *routeNamespace, ns string, unit *RouteUnit, chain []Rou
 
 	queryPath, pathParams := parseRoutePath(path)
 	actName, actParam := parseRouteAction(unit.Action)
-	method, hasInit := parseRouteController(unit.Controller, actName, actParam, pathParams, chain)
+	ctlName, method, hasInit := parseRouteController(unit.Controller, actName, actParam, pathParams, chain)
 
 	m.routeUnit = append(m.routeUnit, &routeUnit{
-		path:          queryPath,
-		pathlen:       len(queryPath),
-		pathParams:    pathParams,
-		pathParamsNum: len(pathParams),
-		controller:    unit.Controller,
-		method:        method,
-		hasInit:       hasInit,
+		path:           queryPath,
+		pathlen:        len(queryPath),
+		pathParams:     pathParams,
+		pathParamsNum:  len(pathParams),
+		controller:     unit.Controller,
+		controllerName: ctlName,
+		method:         method,
+		hasInit:        hasInit,
 	})
 }
 
@@ -533,11 +521,12 @@ func parseRouteAction(action string) (name string, params [][]string) {
 	return
 }
 
-func parseRouteController(controller interface{}, action string, actParams [][]string, pathParams [][]interface{}, chain []RouteControllerInjector) (actionMethod reflect.Method, hasInit bool) {
+func parseRouteController(controller interface{}, action string, actParams [][]string, pathParams [][]interface{}, chain []RouteControllerInjector) (controllerName string, actionMethod reflect.Method, hasInit bool) {
 	rtc := reflect.TypeOf(controller)
-	if rtc.Kind() != reflect.Ptr {
+	if rtc.Kind() != reflect.Ptr || rtc.Elem().Kind() != reflect.Struct {
 		log.Panicf("controller must be ptr point to struct")
 	}
+	controllerName = rtc.Elem().String()
 
 	var found bool
 	for _, pp := range pathParams {

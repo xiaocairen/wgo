@@ -170,8 +170,8 @@ func (r *HttpRequest) IsAjax() bool {
 // use HttpResponse.Append([]byte("hello world")).send()
 // or HttpResponse.send([]byte("hello world"))
 type HttpResponse struct {
-	ResponseWriter http.ResponseWriter
-	Body           [][]byte
+	writer http.ResponseWriter
+	Body   [][]byte
 }
 
 func (r *HttpResponse) Append(body []byte) *HttpResponse {
@@ -187,41 +187,36 @@ func (r *HttpResponse) HasBody() bool {
 	return len(r.Body) > 0
 }
 
-func (r HttpResponse) Send(body []byte) {
+func (r HttpResponse) Send(body []byte) []byte {
 	if nil != body && 0 == len(r.Body) {
-		r.ResponseWriter.Write(body)
-	} else {
-		if nil != body {
-			r.Body = append(r.Body, body)
-		}
+		return body
+	}
+	if nil != body {
+		r.Body = append(r.Body, body)
+	}
 
-		switch len(r.Body) {
-		case 0:
-			r.ResponseWriter.Write([]byte("empty response body"))
-		case 1:
-			r.ResponseWriter.Write(r.Body[0])
-		default:
-			r.ResponseWriter.Write(bytes.Join(r.Body, []byte("")))
-		}
+	switch len(r.Body) {
+	case 0:
+		return []byte("empty response body")
+	case 1:
+		return r.Body[0]
+	default:
+		return bytes.Join(r.Body, []byte(""))
 	}
 }
 
-func (r HttpResponse) SendJson(body interface{}) {
-	if j, e := json.Marshal(body); e != nil {
-		r.ResponseWriter.Write([]byte(e.Error()))
-	} else {
-		r.ResponseWriter.Write(j)
+func (r HttpResponse) SendJson(body interface{}) []byte {
+	j, e := json.Marshal(body)
+	if e != nil {
+		return []byte(e.Error())
 	}
+	return j
 }
 
 func (r *HttpResponse) Addheader(key string, value string) {
-	r.ResponseWriter.Header().Add(key, value)
+	r.writer.Header().Add(key, value)
 }
 
 func (r *HttpResponse) SetHeader(key string, value string) {
-	r.ResponseWriter.Header().Set(key, value)
-}
-
-func (r *HttpResponse) Write(data []byte) (int, error) {
-	return r.ResponseWriter.Write(data)
+	r.writer.Header().Set(key, value)
 }

@@ -20,23 +20,25 @@ func (this *WgoController) AppendBody(body []byte) *WgoController {
 	return this
 }
 
-func (this *WgoController) Render(body []byte) {
-	this.HttpResponse.Send(body)
+func (this *WgoController) Render(body []byte) []byte {
+	return this.HttpResponse.Send(body)
 }
 
-func (this *WgoController) RenderJson(body interface{}) {
+func (this *WgoController) RenderJson(body interface{}) []byte {
 	this.HttpResponse.SetHeader("content-type", "application/json")
-	this.HttpResponse.SendJson(body)
+	return this.HttpResponse.SendJson(body)
 }
 
-func (this *WgoController) RenderHtml(filename string, data interface{}) {
-	this.Template.ExecuteTemplate(this.HttpResponse, filename, data)
+func (this *WgoController) RenderHtml(filename string, data interface{}) (string, interface{}) {
+	//this.Template.ExecuteTemplate(this.HttpResponse, filename, data)
+	return filename, data
 }
 
-func (this *WgoController) RenderHtmlStr(htmlStr string, data interface{}) {
-	if t, e := this.Template.Parse(htmlStr); e != nil {
+func (this *WgoController) RenderHtmlStr(htmlStr string, data interface{}) (*template.Template, interface{}) {
+	t, e := this.Template.Parse(htmlStr)
+	if e != nil {
 		log.Panic(e)
-	} else {
-		t.Execute(this.HttpResponse, data)
 	}
+		//t.Execute(this.HttpResponse, data)
+	return t, data
 }

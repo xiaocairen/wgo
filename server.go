@@ -34,7 +34,7 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	svc := this.app.servicer.New()
 	req := &HttpRequest{Request: r}
-	res := &HttpResponse{ResponseWriter: w}
+	res := &HttpResponse{writer: w}
 	req.init()
 
 	controller := tool.StructCopy(route.controller)
@@ -49,19 +49,56 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		iface.InjectRequestController(controller, cve, svc)
 	}
 
+	this.render(w, cv, route, params)
+}
+
+func (this *server) render(w http.ResponseWriter, cv reflect.Value, route *routeUnit, params []routePathParam) {
 	if route.hasInit {
 		cv.MethodByName("Init").Call(nil)
 	}
 
+	var ret []reflect.Value
 	if nil == params {
-		cv.MethodByName(route.method.Name).Call(nil)
+		ret = cv.MethodByName(route.method.Name).Call(nil)
 	} else {
 		var values = make([]reflect.Value, len(params))
 		for k, p := range params {
 			values[k] = reflect.ValueOf(p.ppvalue)
 		}
 
-		cv.MethodByName(route.method.Name).Call(values)
+		ret = cv.MethodByName(route.method.Name).Call(values)
+	}
+
+	switch len(ret) {
+	default:
+		log.Panicf("method '%s' of '%s' return must be []byte or (string, interface{}) or (*template.Template, interface{})")
+	case 1:
+		rt := ret[0].Type()
+		if rt.Kind() != reflect.Slice || rt.Elem().Kind() != reflect.Uint8 {
+			log.Panicf("method '%s' of '%s' first return must be []byte, '%s' given", route.method.Name, route.controllerName, rt.Kind())
+		}
+		if ret[0].IsNil() {
+			log.Panicf("method '%s' of '%s' first return is nil", route.method.Name, route.controllerName)
+		}
+		w.Write(ret[0].Bytes())
+	case 2:
+		var (
+			r1  = ret[0]
+			r2  = ret[1]
+			rt1 = r1.Type()
+		)
+		switch rt1.Kind() {
+		default:
+			log.Panicf("method '%s' of '%s' return must be (string, interface{}) or (*template.Template, interface{})", route.method.Name, route.controllerName)
+		case reflect.String:
+			this.app.htmlTemplate.ExecuteTemplate(w, r1.String(), r2)
+		case reflect.Ptr:
+			re1 := rt1.Elem()
+			if re1.Kind() != reflect.Struct || re1.String() != "template.Template" {
+				log.Panicf("method '%s' of '%s' return must be (string, interface{}) or (template.Template, interface{})", route.method.Name, route.controllerName)
+			}
+			r1.MethodByName("Execute").Call([]reflect.Value{reflect.ValueOf(w), r2})
+		}
 	}
 }
 
@@ -132,10 +169,9 @@ func (this server) InjectRouteController(controller interface{}) {
 	dst.Set(src)
 
 	if nil == this.app.htmlTemplate {
-		src = reflect.ValueOf(template.New("WgoTemplateEngine"))
-	} else {
-		src = reflect.ValueOf(this.app.htmlTemplate)
+		this.app.htmlTemplate = template.New("WgoTemplateEngine")
 	}
+	src = reflect.ValueOf(this.app.htmlTemplate)
 	dst = ctlval.FieldByName("Template")
 	if !dst.CanSet() || !src.Type().AssignableTo(dst.Type()) {
 		log.Panicf("Template of %s can't be assignableTo", name)
