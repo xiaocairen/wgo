@@ -469,6 +469,13 @@ func (r *Rows) NextResultSet() bool {
 	return r.rows.NextResultSet()
 }
 
+func (r *Rows) Err() error {
+	if r.lerr != nil {
+		return r.lerr
+	}
+	return r.rows.Err()
+}
+
 func (r *Rows) Close() error {
 	if r.lerr != nil {
 		return r.lerr

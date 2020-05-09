@@ -576,6 +576,12 @@ func (s *svc) LoadOne(where *msql.WhereCondition, orderBy []string) error {
 		Limit:   msql.Limit(1),
 	}).Query()
 	defer rows.Close()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		return sql.ErrNoRows
+	}
 
 	return rows.ScanStruct(s.target)
 }
