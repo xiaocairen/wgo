@@ -18,12 +18,10 @@ type server struct {
 }
 
 func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !this.app.debug {
-		if nil == this.app.finally {
-			defer this.finally(w, r)
-		} else {
-			defer this.app.finally(w, r)
-		}
+	if nil == this.app.finally {
+		defer this.finally(w, r)
+	} else {
+		defer this.app.finally(w, r)
 	}
 
 	route, params, notfound := this.Router.getHandler(r)
@@ -32,19 +30,18 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	svc := this.app.servicer.New()
 	req := &HttpRequest{Request: r}
 	res := &HttpResponse{ResponseWriter: w}
 	req.init()
-
-	svc := this.app.servicer.New()
 
 	controller := tool.StructCopy(route.controller)
 	cv := reflect.ValueOf(controller)
 	cve := cv.Elem()
 
+	cve.FieldByName("Service").Set(reflect.ValueOf(svc))
 	cve.FieldByName("HttpRequest").Set(reflect.ValueOf(req))
 	cve.FieldByName("HttpResponse").Set(reflect.ValueOf(res))
-	cve.FieldByName("Service").Set(reflect.ValueOf(svc))
 
 	for _, iface := range this.app.reqControllerInjectorChain {
 		iface.InjectRequestController(controller, cve, svc)
@@ -89,36 +86,36 @@ func (this server) InjectRouteController(controller interface{}) {
 
 	sf, _ = ctltyp.FieldByName("Configurator")
 	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*config.Configurator" {
-		log.Panicf("Configurator of %s must be struct *config.Configurator", name)
+		log.Panicf("Configurator of %s must be ptr to struct config.Configurator", name)
 	}
 
-	sf, _ = ctltyp.FieldByName("HttpResponse")
-	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*wgo.HttpResponse" {
-		log.Panicf("HttpResponse of %s must be struct *wgo.HttpResponse", name)
-	}
-	if !ctlval.FieldByName("HttpResponse").CanSet() {
-		log.Panicf("field HttpResponse of %s can't be assign", name)
-	}
-
-	sf, _ = ctltyp.FieldByName("HttpRequest")
-	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*wgo.HttpRequest" {
-		log.Panicf("HttpRequest of %s must be struct *wgo.HttpRequest", name)
-	}
-	if !ctlval.FieldByName("HttpRequest").CanSet() {
-		log.Panicf("field HttpRequest of %s can't be assign", name)
-	}
-
-	sf, _ = ctltyp.FieldByName("Tpl")
+	sf, _ = ctltyp.FieldByName("Template")
 	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*template.Template" {
-		log.Panicf("Tpl of %s must be struct *template.Template", name)
+		log.Panicf("Template of %s must be ptr to struct template.Template", name)
 	}
 
 	sf, _ = ctltyp.FieldByName("Service")
 	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*service.Service" {
-		log.Panicf("Service of %s must be struct *service.Service", name)
+		log.Panicf("Service of %s must be ptr to struct service.Service", name)
 	}
 	if !ctlval.FieldByName("Service").CanSet() {
-		log.Panicf("field Service of %s can't be assign", name)
+		log.Panicf("Service of %s can't be assignableTo", name)
+	}
+
+	sf, _ = ctltyp.FieldByName("HttpRequest")
+	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*wgo.HttpRequest" {
+		log.Panicf("HttpRequest of %s must be ptr to struct wgo.HttpRequest", name)
+	}
+	if !ctlval.FieldByName("HttpRequest").CanSet() {
+		log.Panicf("HttpRequest of %s can't be assignableTo", name)
+	}
+
+	sf, _ = ctltyp.FieldByName("HttpResponse")
+	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*wgo.HttpResponse" {
+		log.Panicf("HttpResponse of %s must be ptr to struct wgo.HttpResponse", name)
+	}
+	if !ctlval.FieldByName("HttpResponse").CanSet() {
+		log.Panicf("HttpResponse of %s can't be assignableTo", name)
 	}
 
 	src := reflect.ValueOf(this.Configurator)
@@ -133,10 +130,9 @@ func (this server) InjectRouteController(controller interface{}) {
 	} else {
 		src = reflect.ValueOf(this.app.htmlTemplate)
 	}
-
-	dst = ctlval.FieldByName("Tpl")
+	dst = ctlval.FieldByName("Template")
 	if !dst.CanSet() || !src.Type().AssignableTo(dst.Type()) {
-		log.Panicf("field Tpl of %s can't be assign", name)
+		log.Panicf("Template of %s can't be assignableTo", name)
 	}
 	dst.Set(src)
 }

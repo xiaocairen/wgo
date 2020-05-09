@@ -60,7 +60,7 @@ func NewDB(dbcs []*DBConfig, testPing bool) (*DB, error) {
 	onceNewDB.Do(func() {
 		if nil == dbcs || 0 == len(dbcs) {
 			dbInstance = &DB{alone: true}
-			err = fmt.Errorf("param dbcs of NewDB() is nil or is empty")
+			err = fmt.Errorf("first param of NewDB() is nil or is empty")
 			return
 		}
 
@@ -123,7 +123,7 @@ func NewDB(dbcs []*DBConfig, testPing bool) (*DB, error) {
 					})
 				default:
 					dbInstance = &DB{alone: true}
-					err = fmt.Errorf("database tag read_or_write must be 0, 1, 2; 0=rw, 1=r, 2=w")
+					err = fmt.Errorf("database tag read_or_write must be 0, 1, 2; 0:rw, 1:r, 2:w")
 					return
 				}
 			}
@@ -619,6 +619,9 @@ func (r *Rows) ScanStructAll(in interface{}) ([]interface{}, error) {
 			return nil, err
 		}
 		out = append(out, tmp)
+	}
+	if err := r.rows.Err(); err != nil {
+		return nil, err
 	}
 	return out, nil
 }
