@@ -259,7 +259,7 @@ type routeUnit struct {
 	pathParams     [][]interface{}
 	pathParamsNum  int
 	controller     interface{}
-	controllerName string
+	ctlName string
 	method         reflect.Method
 	hasInit        bool
 }
@@ -425,7 +425,7 @@ func parseRouteMethod(m *routeNamespace, ns string, unit *RouteUnit, chain []Rou
 		pathParams:     pathParams,
 		pathParamsNum:  len(pathParams),
 		controller:     unit.Controller,
-		controllerName: ctlName,
+		ctlName: ctlName,
 		method:         method,
 		hasInit:        hasInit,
 	})
@@ -521,12 +521,12 @@ func parseRouteAction(action string) (name string, params [][]string) {
 	return
 }
 
-func parseRouteController(controller interface{}, action string, actParams [][]string, pathParams [][]interface{}, chain []RouteControllerInjector) (controllerName string, actionMethod reflect.Method, hasInit bool) {
+func parseRouteController(controller interface{}, action string, actParams [][]string, pathParams [][]interface{}, chain []RouteControllerInjector) (ctlName string, actionMethod reflect.Method, hasInit bool) {
 	rtc := reflect.TypeOf(controller)
 	if rtc.Kind() != reflect.Ptr || rtc.Elem().Kind() != reflect.Struct {
 		log.Panicf("controller must be ptr point to struct")
 	}
-	controllerName = rtc.Elem().String()
+	ctlName = rtc.Elem().String()
 
 	var found bool
 	for _, pp := range pathParams {

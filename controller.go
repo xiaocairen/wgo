@@ -4,6 +4,7 @@ import (
 	"github.com/xiaocairen/wgo/config"
 	"github.com/xiaocairen/wgo/service"
 	"html/template"
+	"github.com/xiaocairen/wgo/tool"
 	"log"
 )
 
@@ -30,15 +31,19 @@ func (this *WgoController) RenderJson(body interface{}) []byte {
 }
 
 func (this *WgoController) RenderHtml(filename string, data interface{}) (string, interface{}) {
-	//this.Template.ExecuteTemplate(this.HttpResponse, filename, data)
 	return filename, data
 }
 
 func (this *WgoController) RenderHtmlStr(htmlStr string, data interface{}) (*template.Template, interface{}) {
-	t, e := this.Template.Parse(htmlStr)
-	if e != nil {
-		log.Panic(e)
+	name := tool.MD5(htmlStr)
+	t := this.Template.Lookup(name)
+	if nil == t {
+		tpl, err := this.Template.New(name).Parse(htmlStr)
+		if err != nil {
+			log.Panic(err)
+		}
+		return tpl, data
+	} else {
+		return t, data
 	}
-		//t.Execute(this.HttpResponse, data)
-	return t, data
 }

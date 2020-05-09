@@ -71,16 +71,18 @@ func (this *server) render(w http.ResponseWriter, cv reflect.Value, route *route
 
 	switch len(ret) {
 	default:
-		log.Panicf("method '%s' of '%s' return must be []byte or (string, interface{}) or (*template.Template, interface{})")
+		log.Panicf("%s of %s return must be []byte or (string, interface{}) or (*template.Template, interface{})")
+		
 	case 1:
 		rt := ret[0].Type()
 		if rt.Kind() != reflect.Slice || rt.Elem().Kind() != reflect.Uint8 {
-			log.Panicf("method '%s' of '%s' first return must be []byte, '%s' given", route.method.Name, route.controllerName, rt.Kind())
+			log.Panicf("%s of %s first return must be []byte, '%s' given", route.method.Name, route.ctlName, rt.Kind())
 		}
 		if ret[0].IsNil() {
-			log.Panicf("method '%s' of '%s' first return is nil", route.method.Name, route.controllerName)
+			log.Panicf("%s of %s first return is nil", route.method.Name, route.ctlName)
 		}
 		w.Write(ret[0].Bytes())
+		
 	case 2:
 		var (
 			r1  = ret[0]
@@ -89,13 +91,13 @@ func (this *server) render(w http.ResponseWriter, cv reflect.Value, route *route
 		)
 		switch rt1.Kind() {
 		default:
-			log.Panicf("method '%s' of '%s' return must be (string, interface{}) or (*template.Template, interface{})", route.method.Name, route.controllerName)
+			log.Panicf("%s of %s return must be (string, interface{}) or (*template.Template, interface{})", route.method.Name, route.ctlName)
 		case reflect.String:
 			this.app.htmlTemplate.ExecuteTemplate(w, r1.String(), r2)
 		case reflect.Ptr:
 			re1 := rt1.Elem()
 			if re1.Kind() != reflect.Struct || re1.String() != "template.Template" {
-				log.Panicf("method '%s' of '%s' return must be (string, interface{}) or (template.Template, interface{})", route.method.Name, route.controllerName)
+				log.Panicf("%s of %s return must be (string, interface{}) or (template.Template, interface{})", route.method.Name, route.ctlName)
 			}
 			r1.MethodByName("Execute").Call([]reflect.Value{reflect.ValueOf(w), r2})
 		}
