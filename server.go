@@ -2,13 +2,15 @@ package wgo
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/xiaocairen/wgo/config"
-	"github.com/xiaocairen/wgo/tool"
 	"github.com/xiaocairen/wgo/service"
+	"github.com/xiaocairen/wgo/tool"
 	"html/template"
 	"log"
 	"net/http"
 	"reflect"
+	"runtime/debug"
 )
 
 type server struct {
@@ -18,12 +20,10 @@ type server struct {
 }
 
 func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !this.app.debug {
-		if nil == this.app.finally {
-			defer this.finally(w, r)
-		} else {
-			defer this.app.finally(w, r)
-		}
+	if nil == this.app.finally {
+		defer this.finally(w, r)
+	} else {
+		defer this.app.finally(w, r)
 	}
 
 	route, params, notfound := this.Router.getHandler(r)
@@ -67,11 +67,15 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (this *server) finally(res http.ResponseWriter, req *http.Request) {
 	if e := recover(); e != nil {
-		b, _ := json.Marshal(map[string]interface{}{
-			"success":   false,
-			"error_msg": e,
-		})
-		res.Write(b)
+		if this.app.debug {
+			res.Write(tool.String2Bytes(fmt.Sprintf("%s\n\n%s", e, debug.Stack())))
+		} else {
+			b, _ := json.Marshal(map[string]interface{}{
+				"success":   false,
+				"error_msg": e,
+			})
+			res.Write(b)
+		}
 	}
 }
 
