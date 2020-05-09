@@ -74,8 +74,8 @@ type Service struct {
 	tables []*table
 }
 
-func (s *Service) DB() *mdb.DB {
-	return s.db
+func (s *Service) Conn() *mdb.Conn {
+	return s.conn
 }
 
 func (s *Service) SelectDbHost(hostname string) {
