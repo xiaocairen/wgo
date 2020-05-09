@@ -474,6 +474,25 @@ func (s *svc) Load(with ...string) error {
 	return s.loadWith(with...)
 }
 
+func (s *svc) LoadOne(where *msql.WhereCondition, orderBy []string, with ...string) error {
+	if s.newErr != nil {
+		return s.newErr
+	}
+
+	err := s.conn.Select(msql.Select{
+		Select:  msql.Fields(s.table.tableFields...),
+		From:    msql.Table{Table: s.table.tableName},
+		Where:   where,
+		OrderBy: orderBy,
+		Limit:   msql.Limit(1),
+	}).QueryRow().ScanStruct(s.target)
+	if nil != err {
+		return err
+	}
+
+	return s.loadWith(with...)
+}
+
 func (s *svc) loadWith(with ...string) error {
 	if len(with) == 0 {
 		return nil
@@ -561,29 +580,6 @@ func (s *svc) loadWith(with ...string) error {
 		}
 	}
 	return nil
-}
-
-func (s *svc) LoadOne(where *msql.WhereCondition, orderBy []string) error {
-	if s.newErr != nil {
-		return s.newErr
-	}
-
-	rows := s.conn.Select(msql.Select{
-		Select:  msql.Fields(s.table.tableFields...),
-		From:    msql.Table{Table: s.table.tableName},
-		Where:   where,
-		OrderBy: orderBy,
-		Limit:   msql.Limit(1),
-	}).Query()
-	defer rows.Close()
-	if !rows.Next() {
-		if err := rows.Err(); err != nil {
-			return err
-		}
-		return sql.ErrNoRows
-	}
-
-	return rows.ScanStruct(s.target)
 }
 
 // param where use func msql.Where, msql.And, msql.Or, msql.In, msql.NotIn,
