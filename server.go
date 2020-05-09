@@ -18,10 +18,12 @@ type server struct {
 }
 
 func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if nil == this.app.finally {
-		defer this.finally(w, r)
-	} else {
-		defer this.app.finally(w, r)
+	if !this.app.debug {
+		if nil == this.app.finally {
+			defer this.finally(w, r)
+		} else {
+			defer this.app.finally(w, r)
+		}
 	}
 
 	route, params, notfound := this.Router.getHandler(r)
