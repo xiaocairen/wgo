@@ -457,7 +457,7 @@ func (s *svc) DeleteByField(field string, value interface{}) (int64, error) {
 	return res.RowsAffected()
 }
 
-func (s *svc) Load(with ...string) error {
+func (s *svc) Load(primaryVal interface{}, with ...string) error {
 	if s.newErr != nil {
 		return s.newErr
 	}
@@ -465,7 +465,7 @@ func (s *svc) Load(with ...string) error {
 	err := s.conn.Select(msql.Select{
 		Select: msql.Fields(s.table.tableFields...),
 		From:   msql.Table{Table: s.table.tableName},
-		Where:  msql.Where(s.table.primaryKey, "=", s.GetPrimaryVal()),
+		Where:  msql.Where(s.table.primaryKey, "=", primaryVal),
 	}).QueryRow().ScanStruct(s.target)
 	if nil != err {
 		return err
