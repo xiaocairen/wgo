@@ -49,12 +49,12 @@ func (r *HttpRequest) Get(key string) string {
 	return r.query.Get(key)
 }
 
-func (r *HttpRequest) GetInt(key string) int {
+func (r *HttpRequest) GetInt(key string) int64 {
 	v := r.query.Get(key)
 	if "" == v {
 		return 0
 	}
-	i, e := strconv.Atoi(v)
+	i, e := strconv.ParseInt(v, 10, 64)
 	if e != nil {
 		return 0
 	}
@@ -68,12 +68,12 @@ func (r *HttpRequest) Post(key string) string {
 	return r.Request.PostForm.Get(key)
 }
 
-func (r *HttpRequest) PostInt(key string) int {
+func (r *HttpRequest) PostInt(key string) int64 {
 	v := r.Post(key)
 	if "" == v {
 		return 0
 	}
-	i, e := strconv.Atoi(v)
+	i, e := strconv.ParseInt(v, 10, 64)
 	if e != nil {
 		return 0
 	}
@@ -88,7 +88,7 @@ func (r *HttpRequest) GetRequest(key string) string {
 	return v
 }
 
-func (r *HttpRequest) GetRequestInt(key string) int {
+func (r *HttpRequest) GetRequestInt(key string) int64 {
 	i := r.PostInt(key)
 	if 0 == i {
 		i = r.GetInt(key)
