@@ -41,6 +41,7 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	cv := reflect.ValueOf(controller)
 	cve := cv.Elem()
 
+	cve.FieldByName("Router").Set(reflect.ValueOf(router))
 	cve.FieldByName("Service").Set(reflect.ValueOf(svc))
 	cve.FieldByName("HttpRequest").Set(reflect.ValueOf(req))
 	cve.FieldByName("HttpResponse").Set(reflect.ValueOf(res))
@@ -132,6 +133,14 @@ func (this server) InjectRouteController(controller interface{}) {
 	sf, _ = ctltyp.FieldByName("Configurator")
 	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*config.Configurator" {
 		log.Panicf("Configurator of %s must be ptr to struct config.Configurator", name)
+	}
+
+	sf, _ = ctltyp.FieldByName("Router")
+	if sf.Type.Kind() != reflect.Struct || sf.Type.String() != "wgo.Router" {
+		log.Panicf("Router of %s must be ptr to struct Router", name)
+	}
+	if !ctlval.FieldByName("Router").CanSet() {
+		log.Panicf("Router of %s can't be assignableTo", name)
 	}
 
 	sf, _ = ctltyp.FieldByName("Template")

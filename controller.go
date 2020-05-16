@@ -3,13 +3,14 @@ package wgo
 import (
 	"github.com/xiaocairen/wgo/config"
 	"github.com/xiaocairen/wgo/service"
-	"html/template"
 	"github.com/xiaocairen/wgo/tool"
+	"html/template"
 	"log"
 )
 
 type WgoController struct {
 	Configurator *config.Configurator
+	Router       Router
 	Template     *template.Template
 	Service      *service.Service
 	HttpRequest  *HttpRequest
