@@ -181,7 +181,7 @@ func fillStruct(outType reflect.Type, outValue reflect.Value, name string, value
 	if _, found := outType.FieldByName(name); !found {
 		for i := 0; i < outType.NumField(); i++ {
 			f := outType.Field(i)
-			if name == f.Tag.Get("json") || name == f.Tag.Get("mdb") {
+			if name == f.Tag.Get("mdb") || name == f.Tag.Get("yaml") || name == f.Tag.Get("json") {
 				field = f
 				found = true
 				break
