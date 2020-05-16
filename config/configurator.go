@@ -21,7 +21,7 @@ func New(file string) *Configurator {
 		panic(err)
 	}
 	if len(res) == 0 {
-		panic(fmt.Errorf("app.json is empty"))
+		panic("app.json is empty")
 	}
 	if err := json.Unmarshal(res, &c.data); err != nil {
 		panic(err)
@@ -29,21 +29,6 @@ func New(file string) *Configurator {
 
 	return c
 }
-/*
-func (c *Configurator) init() *configurator {
-	res, err := ioutil.ReadFile("app.json")
-	if err != nil {
-		panic(err)
-	}
-	if len(res) == 0 {
-		panic(fmt.Errorf("app.json is empty"))
-	}
-	if err := json.Unmarshal(res, &c.data); err != nil {
-		panic(err)
-	}
-
-	return c
-}*/
 
 func (c *Configurator) Get(path string) (out interface{}, err error) {
 	paths := strings.Split(path, ".")
@@ -67,30 +52,17 @@ func (c *Configurator) Get(path string) (out interface{}, err error) {
 }
 
 func (c *Configurator) GetStruct(path string, out interface{}) error {
-	outt := reflect.TypeOf(out)
-	outte := outt.Elem()
-	if outt.Kind() != reflect.Ptr || outte.Kind() != reflect.Struct {
-		return fmt.Errorf("out must be ptr to struct")
-	}
-
-	outv := reflect.ValueOf(out)
-	if outv.IsNil() {
-		return fmt.Errorf("out is nil")
-	}
-
 	paths := strings.Split(path, ".")
 	m := make(map[string]interface{})
 	if err := c.getMap(paths, c.data, &m); err != nil {
 		return err
 	}
 
-	outve := outv.Elem()
-	for k, v := range m {
-		if err := c.fillStruct(outte, outve, k, v); err != nil {
-			return err
-		}
+	tmp, err := json.Marshal(m)
+	if err != nil {
+		return err
 	}
-	return nil
+	return json.Unmarshal(tmp, out)
 }
 
 func (c *Configurator) GetMap(path string, out *map[string]interface{}) error {
