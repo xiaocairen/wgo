@@ -26,7 +26,7 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		defer this.app.finally(w, r)
 	}
 
-	route, params, notfound := this.Router.getHandler(r)
+	router, params, notfound := this.Router.getHandler(r)
 	if nil != notfound {
 		w.Write([]byte(notfound.Error()))
 		return
@@ -37,7 +37,7 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	res := &HttpResponse{writer: w}
 	req.init()
 
-	controller := tool.StructCopy(route.controller)
+	controller := tool.StructCopy(router.Controller)
 	cv := reflect.ValueOf(controller)
 	cve := cv.Elem()
 
@@ -46,27 +46,27 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	cve.FieldByName("HttpResponse").Set(reflect.ValueOf(res))
 
 	for _, iface := range this.app.reqControllerInjectorChain {
-		iface.InjectRequestController(controller, cve, svc)
+		iface.InjectRequestController(router, cve, svc)
 	}
 
-	this.render(w, cv, route, params)
+	this.render(w, cv, router, params)
 }
 
-func (this *server) render(w http.ResponseWriter, cv reflect.Value, route *routeUnit, params []routePathParam) {
-	if route.hasInit {
+func (this *server) render(w http.ResponseWriter, cv reflect.Value, router Router, params []routePathParam) {
+	if router.HasInit {
 		cv.MethodByName("Init").Call(nil)
 	}
 
 	var ret []reflect.Value
 	if nil == params {
-		ret = cv.MethodByName(route.method.Name).Call(nil)
+		ret = cv.MethodByName(router.Method.Name).Call(nil)
 	} else {
 		var values = make([]reflect.Value, len(params))
 		for k, p := range params {
 			values[k] = reflect.ValueOf(p.ppvalue)
 		}
 
-		ret = cv.MethodByName(route.method.Name).Call(values)
+		ret = cv.MethodByName(router.Method.Name).Call(values)
 	}
 
 	switch len(ret) {
@@ -76,10 +76,10 @@ func (this *server) render(w http.ResponseWriter, cv reflect.Value, route *route
 	case 1:
 		rt := ret[0].Type()
 		if rt.Kind() != reflect.Slice || rt.Elem().Kind() != reflect.Uint8 {
-			log.Panicf("%s of %s first return must be []byte, '%s' given", route.method.Name, route.ctlName, rt.Kind())
+			log.Panicf("%s of %s first return must be []byte, '%s' given", router.Method.Name, router.ControllerName, rt.Kind())
 		}
 		if ret[0].IsNil() {
-			log.Panicf("%s of %s first return is nil", route.method.Name, route.ctlName)
+			log.Panicf("%s of %s first return is nil", router.Method.Name, router.ControllerName)
 		}
 		w.Write(ret[0].Bytes())
 		
@@ -91,13 +91,13 @@ func (this *server) render(w http.ResponseWriter, cv reflect.Value, route *route
 		)
 		switch rt1.Kind() {
 		default:
-			log.Panicf("%s of %s return must be (string, interface{}) or (*template.Template, interface{})", route.method.Name, route.ctlName)
+			log.Panicf("%s of %s return must be (string, interface{}) or (*template.Template, interface{})", router.Method.Name, router.ControllerName)
 		case reflect.String:
 			this.app.htmlTemplate.ExecuteTemplate(w, r1.String(), r2)
 		case reflect.Ptr:
 			re1 := rt1.Elem()
 			if re1.Kind() != reflect.Struct || re1.String() != "template.Template" {
-				log.Panicf("%s of %s return must be (string, interface{}) or (template.Template, interface{})", route.method.Name, route.ctlName)
+				log.Panicf("%s of %s return must be (string, interface{}) or (template.Template, interface{})", router.Method.Name, router.ControllerName)
 			}
 			r1.MethodByName("Execute").Call([]reflect.Value{reflect.ValueOf(w), r2})
 		}
@@ -182,5 +182,5 @@ func (this server) InjectRouteController(controller interface{}) {
 }
 
 type RequestControllerInjector interface {
-	InjectRequestController(controller interface{}, cve reflect.Value, svc *service.Service)
+	InjectRequestController(router Router, cve reflect.Value, svc *service.Service)
 }

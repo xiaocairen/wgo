@@ -20,25 +20,25 @@ func (this *router) init(chain []RouteControllerInjector) {
 	this.RouteCollection.call(this.RouteRegister)
 }
 
-func (this *router) getHandler(r *http.Request) (route *routeUnit, params []routePathParam, err error) {
+func (this *router) getHandler(r *http.Request) (router Router, params []routePathParam, err error) {
 	switch r.Method {
 	case GET:
-		route, params, err = this.searchRoute(this.RouteRegister.get, r)
+		router, params, err = this.searchRoute(this.RouteRegister.get, r)
 		if err != nil {
-			route, params, err = this.searchRoute(this.RouteRegister.any, r)
+			router, params, err = this.searchRoute(this.RouteRegister.any, r)
 		}
 
 	case POST:
-		route, params, err = this.searchRoute(this.RouteRegister.post, r)
+		router, params, err = this.searchRoute(this.RouteRegister.post, r)
 		if err != nil {
-			route, params, err = this.searchRoute(this.RouteRegister.any, r)
+			router, params, err = this.searchRoute(this.RouteRegister.any, r)
 		}
 
 	case PUT:
-		route, params, err = this.searchRoute(this.RouteRegister.put, r)
+		router, params, err = this.searchRoute(this.RouteRegister.put, r)
 
 	case DELETE:
-		route, params, err = this.searchRoute(this.RouteRegister.delete, r)
+		router, params, err = this.searchRoute(this.RouteRegister.delete, r)
 
 	default:
 		err = fmt.Errorf("not support http method '%s'", r.Method)
@@ -52,7 +52,7 @@ type routePathParam struct {
 	ppvalue interface{}
 }
 
-func (this *router) searchRoute(routes []*routeNamespace, r *http.Request) (route *routeUnit, params []routePathParam, err error) {
+func (this *router) searchRoute(routes []*routeNamespace, r *http.Request) (router Router, params []routePathParam, err error) {
 	if 0 == len(routes) {
 		err = RouteNotFoundError{path: r.RequestURI}
 		return
@@ -86,24 +86,24 @@ func (this *router) searchRoute(routes []*routeNamespace, r *http.Request) (rout
 
 	var (
 		urlpathlen = len(r.URL.Path)
-		routelist  []*routeUnit
+		routelist  []*Router
 		paramlist  [][]routePathParam
 	)
-	for key, ru := range routeIt.routeUnit {
+	for key, ru := range routeIt.routers {
 		if 0 == ru.pathParamsNum {
-			if urlpathlen < ru.pathlen || ru.path != r.URL.Path[0:ru.pathlen] || (urlpathlen > ru.pathlen && '/' != r.URL.Path[ru.pathlen]) {
+			if urlpathlen < ru.Pathlen || ru.Path != r.URL.Path[0:ru.Pathlen] || (urlpathlen > ru.Pathlen && '/' != r.URL.Path[ru.Pathlen]) {
 				continue
 			}
 			paramlist = append(paramlist, nil)
-			routelist = append(routelist, routeIt.routeUnit[key])
+			routelist = append(routelist, routeIt.routers[key])
 			continue
 		}
 
-		if urlpathlen <= ru.pathlen || ru.path != r.URL.Path[0:ru.pathlen] || '/' != r.URL.Path[ru.pathlen] {
+		if urlpathlen <= ru.Pathlen || ru.Path != r.URL.Path[0:ru.Pathlen] || '/' != r.URL.Path[ru.Pathlen] {
 			continue
 		}
 
-		pathParams := strings.Split(r.URL.Path[ru.pathlen+1:], "/")
+		pathParams := strings.Split(r.URL.Path[ru.Pathlen+1:], "/")
 		if len(pathParams) < ru.pathParamsNum {
 			continue
 		}
@@ -112,7 +112,7 @@ func (this *router) searchRoute(routes []*routeNamespace, r *http.Request) (rout
 			nomatch   = false
 			tmpParams []routePathParam
 		)
-		for k, pp := range ru.pathParams {
+		for k, pp := range ru.PathParams {
 			ppname, _ := pp[0].(string)
 			pptype, _ := pp[1].(string)
 			switch pptype {
@@ -187,20 +187,20 @@ func (this *router) searchRoute(routes []*routeNamespace, r *http.Request) (rout
 		}
 
 		paramlist = append(paramlist, tmpParams)
-		routelist = append(routelist, routeIt.routeUnit[key])
+		routelist = append(routelist, routeIt.routers[key])
 	}
 
 	switch len(routelist) {
 	case 0:
 		err = RouteNotFoundError{path: r.Host + r.RequestURI}
 	case 1:
-		route = routelist[0]
+		router = *routelist[0]
 		params = paramlist[0]
 	default:
-		route = routelist[0]
+		router = *routelist[0]
 		for k, r := range routelist[1:] {
-			if route.pathlen < r.pathlen {
-				route = r
+			if router.Pathlen < r.Pathlen {
+				router = *r
 				params = paramlist[k+1]
 			}
 		}
@@ -253,20 +253,20 @@ type RouteUnit struct {
 	Action     string
 }
 
-type routeUnit struct {
-	path           string
-	pathlen        int
-	pathParams     [][]interface{}
+type Router struct {
+	Path           string
+	Pathlen        int
+	PathParams     [][]interface{}
 	pathParamsNum  int
-	controller     interface{}
-	ctlName string
-	method         reflect.Method
-	hasInit        bool
+	Controller     interface{}
+	ControllerName string
+	Method         reflect.Method
+	HasInit        bool
 }
 
 type routeNamespace struct {
 	subdomain string
-	routeUnit []*routeUnit
+	routers   []*Router
 }
 
 type RouteRegister struct {
@@ -419,15 +419,15 @@ func parseRouteMethod(m *routeNamespace, ns string, unit *RouteUnit, chain []Rou
 	actName, actParam := parseRouteAction(unit.Action)
 	ctlName, method, hasInit := parseRouteController(unit.Controller, actName, actParam, pathParams, chain)
 
-	m.routeUnit = append(m.routeUnit, &routeUnit{
-		path:           queryPath,
-		pathlen:        len(queryPath),
-		pathParams:     pathParams,
+	m.routers = append(m.routers, &Router{
+		Path:           queryPath,
+		Pathlen:        len(queryPath),
+		PathParams:     pathParams,
 		pathParamsNum:  len(pathParams),
-		controller:     unit.Controller,
-		ctlName: ctlName,
-		method:         method,
-		hasInit:        hasInit,
+		Controller:     unit.Controller,
+		ControllerName: ctlName,
+		Method:         method,
+		HasInit:        hasInit,
 	})
 }
 
