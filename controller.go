@@ -48,3 +48,38 @@ func (this *WgoController) RenderHtmlStr(htmlStr string, data interface{}) (*tem
 		return t, data
 	}
 }
+
+func (this *WgoController) Success(body interface{}) (json []byte) {
+	json = this.RenderJson(struct {
+		Success bool        `json:"success"`
+		Data    interface{} `json:"data,omitempty"`
+	}{Success: true, Data: body})
+	return
+}
+func (this *WgoController) SuccessExtras(body interface{}, extras interface{}) (json []byte) {
+	json = this.RenderJson(struct {
+		Success bool        `json:"success"`
+		Data    interface{} `json:"data,omitempty"`
+		Extras  interface{} `json:"extras,omitempty"`
+	}{Success: true, Data: body, Extras: extras})
+	return
+}
+
+func (this *WgoController) Failure(msg string, code int) (json []byte) {
+	json = this.RenderJson(struct {
+		Success   bool   `json:"success"`
+		ErrorCode int    `json:"error_code,omitempty"`
+		ErrorMsg  string `json:"error_msg,omitempty"`
+	}{Success: false, ErrorCode: code, ErrorMsg: msg})
+	return
+}
+
+func (this *WgoController) FailureExtras(msg string, code int, extras interface{}) (json []byte) {
+	json = this.RenderJson(struct {
+		Success   bool        `json:"success"`
+		ErrorCode int         `json:"error_code,omitempty"`
+		ErrorMsg  string      `json:"error_msg,omitempty"`
+		Extras    interface{} `json:"extras,omitempty"`
+	}{Success: false, ErrorCode: code, ErrorMsg: msg, Extras: extras})
+	return
+}
