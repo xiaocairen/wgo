@@ -246,6 +246,14 @@ type RouteCollection func(register *RouteRegister)
 
 func (fn RouteCollection) call(register *RouteRegister) {
 	fn(register)
+	/*for _, r := range register.get {
+		fmt.Printf("r.subdomain => %s\n", r.subdomain)
+		for _, n := range r.routers {
+			fmt.Printf("Path => %s\n", n.Path)
+			fmt.Printf("ControllerName => %s\n", n.ControllerName)
+			fmt.Printf("Method.Name => %s\n", n.Method.Name)
+		}
+	}*/
 }
 
 type RouteUnit struct {
@@ -417,10 +425,10 @@ func (this routeUnitHttpMethod) Any(unit RouteUnit) {
 
 func parseRouteMethod(m *routeNamespace, ns string, unit RouteUnit, chain []RouteControllerInjector, interceptor RouteInterceptor) {
 	var path string
-	if "/" != ns {
-		path = ns + unit.Path
-	} else {
+	if "/" == ns {
 		path = unit.Path
+	} else {
+		path = "/" + ns + unit.Path
 	}
 
 	queryPath, pathParams := parseRoutePath(path)
