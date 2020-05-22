@@ -26,11 +26,11 @@ type HttpMethod interface {
 }
 
 type UnitHttpMethod interface {
-	Get(unit *RouteUnit)
-	Post(unit *RouteUnit)
-	Put(unit *RouteUnit)
-	Delete(unit *RouteUnit)
-	Any(unit *RouteUnit)
+	Get(unit RouteUnit)
+	Post(unit RouteUnit)
+	Put(unit RouteUnit)
+	Delete(unit RouteUnit)
+	Any(unit RouteUnit)
 }
 
 type HttpRequest struct {
