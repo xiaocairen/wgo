@@ -292,7 +292,7 @@ func (this *RouteRegister) Registe(subdomain, namespace string, interceptor Rout
 	}
 	this.domains = append(this.domains, sd)
 
-	uhm := &routeUnitHttpMethod{
+	uhm := routeUnitHttpMethod{
 		sd:          sd,
 		ns:          ns,
 		interceptor: interceptor,
@@ -302,39 +302,39 @@ func (this *RouteRegister) Registe(subdomain, namespace string, interceptor Rout
 }
 
 type routeHttpMethod struct {
-	uhm *routeUnitHttpMethod
+	uhm routeUnitHttpMethod
 }
 
 func (this routeHttpMethod) Get(p string, c interface{}, a string) {
-	this.uhm.Get(&RouteUnit{
+	this.uhm.Get(RouteUnit{
 		Path:       p,
 		Controller: c,
 		Action:     a,
 	})
 }
 func (this routeHttpMethod) Post(p string, c interface{}, a string) {
-	this.uhm.Post(&RouteUnit{
+	this.uhm.Post(RouteUnit{
 		Path:       p,
 		Controller: c,
 		Action:     a,
 	})
 }
 func (this routeHttpMethod) Put(p string, c interface{}, a string) {
-	this.uhm.Put(&RouteUnit{
+	this.uhm.Put(RouteUnit{
 		Path:       p,
 		Controller: c,
 		Action:     a,
 	})
 }
 func (this routeHttpMethod) Delete(p string, c interface{}, a string) {
-	this.uhm.Delete(&RouteUnit{
+	this.uhm.Delete(RouteUnit{
 		Path:       p,
 		Controller: c,
 		Action:     a,
 	})
 }
 func (this routeHttpMethod) Any(p string, c interface{}, a string) {
-	this.uhm.Any(&RouteUnit{
+	this.uhm.Any(RouteUnit{
 		Path:       p,
 		Controller: c,
 		Action:     a,
@@ -348,7 +348,7 @@ type routeUnitHttpMethod struct {
 	interceptor RouteInterceptor
 }
 
-func (this routeUnitHttpMethod) Get(unit *RouteUnit) {
+func (this routeUnitHttpMethod) Get(unit RouteUnit) {
 	for _, s := range this.register.get {
 		if this.sd == s.subdomain {
 			parseRouteMethod(s, this.ns, unit, this.register.injectChain, this.interceptor)
@@ -361,7 +361,7 @@ func (this routeUnitHttpMethod) Get(unit *RouteUnit) {
 
 	parseRouteMethod(rns, this.ns, unit, this.register.injectChain, this.interceptor)
 }
-func (this routeUnitHttpMethod) Post(unit *RouteUnit) {
+func (this routeUnitHttpMethod) Post(unit RouteUnit) {
 	for _, s := range this.register.post {
 		if this.sd == s.subdomain {
 			parseRouteMethod(s, this.ns, unit, this.register.injectChain, this.interceptor)
@@ -374,7 +374,7 @@ func (this routeUnitHttpMethod) Post(unit *RouteUnit) {
 
 	parseRouteMethod(rns, this.ns, unit, this.register.injectChain, this.interceptor)
 }
-func (this routeUnitHttpMethod) Put(unit *RouteUnit) {
+func (this routeUnitHttpMethod) Put(unit RouteUnit) {
 	for _, s := range this.register.put {
 		if this.sd == s.subdomain {
 			parseRouteMethod(s, this.ns, unit, this.register.injectChain, this.interceptor)
@@ -387,7 +387,7 @@ func (this routeUnitHttpMethod) Put(unit *RouteUnit) {
 
 	parseRouteMethod(rns, this.ns, unit, this.register.injectChain, this.interceptor)
 }
-func (this routeUnitHttpMethod) Delete(unit *RouteUnit) {
+func (this routeUnitHttpMethod) Delete(unit RouteUnit) {
 	for _, s := range this.register.delete {
 		if this.sd == s.subdomain {
 			parseRouteMethod(s, this.ns, unit, this.register.injectChain, this.interceptor)
@@ -401,7 +401,7 @@ func (this routeUnitHttpMethod) Delete(unit *RouteUnit) {
 	parseRouteMethod(rns, this.ns, unit, this.register.injectChain, this.interceptor)
 }
 
-func (this routeUnitHttpMethod) Any(unit *RouteUnit) {
+func (this routeUnitHttpMethod) Any(unit RouteUnit) {
 	for _, s := range this.register.any {
 		if this.sd == s.subdomain {
 			parseRouteMethod(s, this.ns, unit, this.register.injectChain, this.interceptor)
@@ -415,7 +415,7 @@ func (this routeUnitHttpMethod) Any(unit *RouteUnit) {
 	parseRouteMethod(rns, this.ns, unit, this.register.injectChain, this.interceptor)
 }
 
-func parseRouteMethod(m *routeNamespace, ns string, unit *RouteUnit, chain []RouteControllerInjector, interceptor RouteInterceptor) {
+func parseRouteMethod(m *routeNamespace, ns string, unit RouteUnit, chain []RouteControllerInjector, interceptor RouteInterceptor) {
 	var path string
 	if "/" != ns {
 		path = ns + unit.Path
