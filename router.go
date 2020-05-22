@@ -2,6 +2,7 @@ package wgo
 
 import (
 	"fmt"
+	"github.com/xiaocairen/wgo/service"
 	"log"
 	"net/http"
 	"reflect"
@@ -262,6 +263,7 @@ type Router struct {
 	ControllerName string
 	Method         reflect.Method
 	HasInit        bool
+	interceptor    RouteInterceptor
 }
 
 type routeNamespace struct {
@@ -279,7 +281,7 @@ type RouteRegister struct {
 	injectChain []RouteControllerInjector
 }
 
-func (this *RouteRegister) Registe(subdomain, namespace string, fn func(um UnitHttpMethod, m HttpMethod)) {
+func (this *RouteRegister) Registe(subdomain, namespace string, interceptor RouteInterceptor, fn func(um UnitHttpMethod, m HttpMethod)) {
 	sd := strings.TrimSpace(subdomain)
 	ns := strings.TrimLeft(strings.TrimSpace(namespace), "/")
 	if 0 == len(sd) {
@@ -290,7 +292,12 @@ func (this *RouteRegister) Registe(subdomain, namespace string, fn func(um UnitH
 	}
 	this.domains = append(this.domains, sd)
 
-	uhm := &routeUnitHttpMethod{sd: sd, ns: ns, register: this}
+	uhm := &routeUnitHttpMethod{
+		sd:          sd,
+		ns:          ns,
+		interceptor: interceptor,
+		register:    this,
+	}
 	fn(uhm, routeHttpMethod{uhm: uhm})
 }
 
@@ -335,15 +342,16 @@ func (this routeHttpMethod) Any(p string, c interface{}, a string) {
 }
 
 type routeUnitHttpMethod struct {
-	sd       string
-	ns       string
-	register *RouteRegister
+	sd          string
+	ns          string
+	register    *RouteRegister
+	interceptor RouteInterceptor
 }
 
 func (this routeUnitHttpMethod) Get(unit *RouteUnit) {
 	for _, s := range this.register.get {
 		if this.sd == s.subdomain {
-			parseRouteMethod(s, this.ns, unit, this.register.injectChain)
+			parseRouteMethod(s, this.ns, unit, this.register.injectChain, this.interceptor)
 			return
 		}
 	}
@@ -351,12 +359,12 @@ func (this routeUnitHttpMethod) Get(unit *RouteUnit) {
 	rns := &routeNamespace{subdomain: this.sd}
 	this.register.get = append(this.register.get, rns)
 
-	parseRouteMethod(rns, this.ns, unit, this.register.injectChain)
+	parseRouteMethod(rns, this.ns, unit, this.register.injectChain, this.interceptor)
 }
 func (this routeUnitHttpMethod) Post(unit *RouteUnit) {
 	for _, s := range this.register.post {
 		if this.sd == s.subdomain {
-			parseRouteMethod(s, this.ns, unit, this.register.injectChain)
+			parseRouteMethod(s, this.ns, unit, this.register.injectChain, this.interceptor)
 			return
 		}
 	}
@@ -364,12 +372,12 @@ func (this routeUnitHttpMethod) Post(unit *RouteUnit) {
 	rns := &routeNamespace{subdomain: this.sd}
 	this.register.post = append(this.register.post, rns)
 
-	parseRouteMethod(rns, this.ns, unit, this.register.injectChain)
+	parseRouteMethod(rns, this.ns, unit, this.register.injectChain, this.interceptor)
 }
 func (this routeUnitHttpMethod) Put(unit *RouteUnit) {
 	for _, s := range this.register.put {
 		if this.sd == s.subdomain {
-			parseRouteMethod(s, this.ns, unit, this.register.injectChain)
+			parseRouteMethod(s, this.ns, unit, this.register.injectChain, this.interceptor)
 			return
 		}
 	}
@@ -377,12 +385,12 @@ func (this routeUnitHttpMethod) Put(unit *RouteUnit) {
 	rns := &routeNamespace{subdomain: this.sd}
 	this.register.put = append(this.register.put, rns)
 
-	parseRouteMethod(rns, this.ns, unit, this.register.injectChain)
+	parseRouteMethod(rns, this.ns, unit, this.register.injectChain, this.interceptor)
 }
 func (this routeUnitHttpMethod) Delete(unit *RouteUnit) {
 	for _, s := range this.register.delete {
 		if this.sd == s.subdomain {
-			parseRouteMethod(s, this.ns, unit, this.register.injectChain)
+			parseRouteMethod(s, this.ns, unit, this.register.injectChain, this.interceptor)
 			return
 		}
 	}
@@ -390,13 +398,13 @@ func (this routeUnitHttpMethod) Delete(unit *RouteUnit) {
 	rns := &routeNamespace{subdomain: this.sd}
 	this.register.delete = append(this.register.delete, rns)
 
-	parseRouteMethod(rns, this.ns, unit, this.register.injectChain)
+	parseRouteMethod(rns, this.ns, unit, this.register.injectChain, this.interceptor)
 }
 
 func (this routeUnitHttpMethod) Any(unit *RouteUnit) {
 	for _, s := range this.register.any {
 		if this.sd == s.subdomain {
-			parseRouteMethod(s, this.ns, unit, this.register.injectChain)
+			parseRouteMethod(s, this.ns, unit, this.register.injectChain, this.interceptor)
 			return
 		}
 	}
@@ -404,10 +412,10 @@ func (this routeUnitHttpMethod) Any(unit *RouteUnit) {
 	rns := &routeNamespace{subdomain: this.sd}
 	this.register.any = append(this.register.any, rns)
 
-	parseRouteMethod(rns, this.ns, unit, this.register.injectChain)
+	parseRouteMethod(rns, this.ns, unit, this.register.injectChain, this.interceptor)
 }
 
-func parseRouteMethod(m *routeNamespace, ns string, unit *RouteUnit, chain []RouteControllerInjector) {
+func parseRouteMethod(m *routeNamespace, ns string, unit *RouteUnit, chain []RouteControllerInjector, interceptor RouteInterceptor) {
 	var path string
 	if "/" != ns {
 		path = ns + unit.Path
@@ -428,6 +436,7 @@ func parseRouteMethod(m *routeNamespace, ns string, unit *RouteUnit, chain []Rou
 		ControllerName: ctlName,
 		Method:         method,
 		HasInit:        hasInit,
+		interceptor:    interceptor,
 	})
 }
 
@@ -574,4 +583,8 @@ func parseRouteController(controller interface{}, action string, actParams [][]s
 
 type RouteControllerInjector interface {
 	InjectRouteController(controller interface{})
+}
+
+type RouteInterceptor interface {
+	Before(router Router, svc *service.Service, r *HttpRequest, w *HttpResponse) (pass bool, res []byte)
 }

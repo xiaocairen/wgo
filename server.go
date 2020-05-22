@@ -50,7 +50,45 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		iface.InjectRequestController(router, cve, svc)
 	}
 
-	this.render(w, cv, router, params)
+	if nil == router.interceptor {
+		this.render(w, cv, router, params)
+	} else {
+		var (
+			result   bool
+			resData  []byte
+			inp      = tool.StructCopy(router.interceptor)
+			inpValue = reflect.ValueOf(inp)
+			inpParam = []reflect.Value{
+				reflect.ValueOf(router),
+				reflect.ValueOf(svc),
+				reflect.ValueOf(req),
+				reflect.ValueOf(res),
+			}
+		)
+		result, resData = this.callInterceptor(inpValue, inpParam)
+		if !result {
+			w.Write(resData)
+		} else {
+			this.render(w, cv, router, params)
+		}
+	}
+
+}
+
+func (this *server) callInterceptor(inp reflect.Value, params []reflect.Value) (bool, []byte) {
+	ret := inp.MethodByName("Before").Call(params)
+	if 2 != len(ret) {
+		log.Panic("controller interceptor '%s' return must be (bool, []byte)", inp.Type().Kind().String())
+	}
+
+	res := ret[0]
+	dat := ret[1]
+	rtp := res.Type()
+	dtp := dat.Type()
+	if rtp.Kind() != reflect.Bool || dtp.Kind() != reflect.Slice || dtp.Elem().Kind() != reflect.Uint8 {
+		log.Panic("controller interceptor '%s' return must be (bool, []byte)", inp.Type().Kind().String())
+	}
+	return res.Bool(), dat.Bytes()
 }
 
 func (this *server) render(w http.ResponseWriter, cv reflect.Value, router Router, params []routePathParam) {
@@ -73,7 +111,7 @@ func (this *server) render(w http.ResponseWriter, cv reflect.Value, router Route
 	switch len(ret) {
 	default:
 		log.Panicf("%s of %s return must be []byte or (string, interface{}) or (*template.Template, interface{})")
-		
+
 	case 1:
 		rt := ret[0].Type()
 		if rt.Kind() != reflect.Slice || rt.Elem().Kind() != reflect.Uint8 {
@@ -83,7 +121,7 @@ func (this *server) render(w http.ResponseWriter, cv reflect.Value, router Route
 			log.Panicf("%s of %s first return is nil", router.Method.Name, router.ControllerName)
 		}
 		w.Write(ret[0].Bytes())
-		
+
 	case 2:
 		var (
 			r1  = ret[0]
