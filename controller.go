@@ -17,12 +17,12 @@ type WgoController struct {
 	Response     *HttpResponse
 }
 
-func (this *WgoController) SetCookie(name, value string) {
-	this.Response.SetCookie(name, value, 0)
+func (this *WgoController) SetCookie(name, value string, maxAge int) {
+	this.Response.SetCookie(name, value, maxAge, false, true)
 }
 
-func (this *WgoController) RemoveCookie(name string) {
-	this.Response.RemoveCookie(name)
+func (this *WgoController) DelCookie(name string) {
+	this.Response.DelCookie(name)
 }
 
 func (this *WgoController) AppendBody(body []byte) *WgoController {
