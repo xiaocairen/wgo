@@ -644,11 +644,11 @@ func Encrypt(rawData, key, iv []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return base64.StdEncoding.EncodeToString(data), nil
+	return base64.RawStdEncoding.EncodeToString(data), nil
 }
 
 func Decrypt(encData string, key, iv []byte) (string, error) {
-	tmpData, err := base64.StdEncoding.DecodeString(encData)
+	tmpData, err := base64.RawStdEncoding.DecodeString(encData)
 	if err != nil {
 		return "", err
 	}
