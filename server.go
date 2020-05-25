@@ -157,71 +157,89 @@ func (this *server) finally(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (this server) InjectRouteController(controller interface{}) {
+func (this *server) InjectRouteController(controller interface{}) {
 	var (
-		ctltyp = reflect.TypeOf(controller).Elem()
-		ctlval = reflect.ValueOf(controller).Elem()
-		name   = ctltyp.String()
-		sf     reflect.StructField
+		objt = reflect.TypeOf(controller).Elem()
+		objv = reflect.ValueOf(controller).Elem()
+		name = objt.String()
 	)
-	if w, f := ctltyp.FieldByName("WgoController"); !f || w.Type.Kind() != reflect.Struct || "wgo.WgoController" != w.Type.String() {
+	this.checkController(objt, objv, name)
+
+	this.assigConfigurator(objt, objv, name)
+	this.assigTemplate(objt, objv, name)
+}
+
+func (this *server) checkController(objt reflect.Type, objv reflect.Value, name string) {
+	if w, f := objt.FieldByName("WgoController"); !f || w.Type.Kind() != reflect.Struct || "wgo.WgoController" != w.Type.String() {
 		log.Panicf("struct WgoController must be embeded in %s", name)
 	}
 
-	sf, _ = ctltyp.FieldByName("Configurator")
+	sf, _ := objt.FieldByName("Router")
+	if sf.Type.Kind() != reflect.Struct || sf.Type.String() != "wgo.Router" {
+		log.Panicf("Router of %s must be ptr to struct Router", name)
+	}
+	if !objv.FieldByName("Router").CanSet() {
+		log.Panicf("Router of %s can't be assignableTo", name)
+	}
+
+	sf, _ = objt.FieldByName("Service")
+	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*service.Service" {
+		log.Panicf("Service of %s must be ptr to struct service.Service", name)
+	}
+	if !objv.FieldByName("Service").CanSet() {
+		log.Panicf("Service of %s can't be assignableTo", name)
+	}
+
+	sf, _ = objt.FieldByName("Request")
+	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*wgo.HttpRequest" {
+		log.Panicf("Request of %s must be ptr to struct wgo.HttpRequest", name)
+	}
+	if !objv.FieldByName("Request").CanSet() {
+		log.Panicf("Request of %s can't be assignableTo", name)
+	}
+
+	sf, _ = objt.FieldByName("Response")
+	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*wgo.HttpResponse" {
+		log.Panicf("Response of %s must be ptr to struct wgo.HttpResponse", name)
+	}
+	if !objv.FieldByName("Response").CanSet() {
+		log.Panicf("Response of %s can't be assignableTo", name)
+	}
+}
+
+func (this *server) assigConfigurator(objt reflect.Type, objv reflect.Value, name string) {
+	sf, _ := objt.FieldByName("Configurator")
 	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*config.Configurator" {
 		log.Panicf("Configurator of %s must be ptr to struct config.Configurator", name)
 	}
 
-	sf, _ = ctltyp.FieldByName("Router")
-	if sf.Type.Kind() != reflect.Struct || sf.Type.String() != "wgo.Router" {
-		log.Panicf("Router of %s must be ptr to struct Router", name)
-	}
-	if !ctlval.FieldByName("Router").CanSet() {
-		log.Panicf("Router of %s can't be assignableTo", name)
-	}
-
-	sf, _ = ctltyp.FieldByName("Template")
-	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*template.Template" {
-		log.Panicf("Template of %s must be ptr to struct template.Template", name)
-	}
-
-	sf, _ = ctltyp.FieldByName("Service")
-	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*service.Service" {
-		log.Panicf("Service of %s must be ptr to struct service.Service", name)
-	}
-	if !ctlval.FieldByName("Service").CanSet() {
-		log.Panicf("Service of %s can't be assignableTo", name)
-	}
-
-	sf, _ = ctltyp.FieldByName("Request")
-	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*wgo.HttpRequest" {
-		log.Panicf("Request of %s must be ptr to struct wgo.HttpRequest", name)
-	}
-	if !ctlval.FieldByName("Request").CanSet() {
-		log.Panicf("Request of %s can't be assignableTo", name)
-	}
-
-	sf, _ = ctltyp.FieldByName("Response")
-	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*wgo.HttpResponse" {
-		log.Panicf("Response of %s must be ptr to struct wgo.HttpResponse", name)
-	}
-	if !ctlval.FieldByName("Response").CanSet() {
-		log.Panicf("Response of %s can't be assignableTo", name)
-	}
-
 	src := reflect.ValueOf(this.Configurator)
-	dst := ctlval.FieldByName("Configurator")
+	dst := objv.FieldByName("Configurator")
 	if !dst.CanSet() || !src.Type().AssignableTo(dst.Type()) {
 		log.Panicf("Configurator of %s can't be assignableTo", name)
 	}
 	dst.Set(src)
+}
 
-	if nil == this.app.template {
-		this.app.template = template.New("WgoTemplateEngine")
+func (this *server) assigTemplate(objt reflect.Type, objv reflect.Value, name string) {
+	sf, _ := objt.FieldByName("Template")
+	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*template.Template" {
+		log.Panicf("Template of %s must be ptr to struct template.Template", name)
 	}
-	src = reflect.ValueOf(this.app.template)
-	dst = ctlval.FieldByName("Template")
+
+	if nil != this.app.templateFuncs {
+		for n, f := range this.app.templateFuncs {
+			tplBuiltins[n] = f
+		}
+	}
+
+	this.app.template = template.New("WgoTemplateEngine").Funcs(tplBuiltins)
+	if len(this.app.templatePath) > 0 {
+		this.app.template = template.Must(this.app.template.ParseGlob(this.app.templatePath))
+	}
+
+	src := reflect.ValueOf(this.app.template)
+	dst := objv.FieldByName("Template")
 	if !dst.CanSet() || !src.Type().AssignableTo(dst.Type()) {
 		log.Panicf("Template of %s can't be assignableTo", name)
 	}

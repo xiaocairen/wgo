@@ -28,11 +28,14 @@ type app struct {
 	debug                        bool
 	configurator                 *config.Configurator
 	servicer                     *service.Servicer
+	router                       *router
 	routeCollection              RouteCollection
 	routeControllerInjectorChain []RouteControllerInjector
 	reqControllerInjectorChain   []RequestControllerInjector
 	tableCollection              service.TableCollection
 	template                     *template.Template
+	templatePath                 string
+	templateFuncs                template.FuncMap
 	taskers                      []Tasker
 	finally                      Finally
 }
@@ -102,9 +105,9 @@ func (this *app) Run() {
 			panic(err)
 		}
 
-		r := &router{RouteCollection: this.routeCollection}
-		s := &server{app: this, Configurator: this.configurator, Router: r}
-		r.init([]RouteControllerInjector{s})
+		this.router = &router{RouteCollection: this.routeCollection}
+		s := &server{app: this, Configurator: this.configurator, Router: this.router}
+		this.router.init([]RouteControllerInjector{s})
 
 		this.servicer.Registe(this.tableCollection)
 		this.startTaskers()
@@ -170,9 +173,15 @@ func (this *app) AddRequestControllerInjector(injector RequestControllerInjector
 //	this.routeControllerInjectorChain = append(this.routeControllerInjectorChain, injector)
 //}
 
-func (this *app) SetHtmlTemplate(tpl *template.Template) {
-	if nil == this.template {
-		this.template = tpl
+func (this *app) SetHtmlPath(path string) {
+	if "" == this.templatePath {
+		this.templatePath = path
+	}
+}
+
+func (this *app) SetHtmlFuncs(fnmap template.FuncMap) {
+	if nil == this.templateFuncs {
+		this.templateFuncs = fnmap
 	}
 }
 

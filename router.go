@@ -234,6 +234,33 @@ func (this *router) parseHost(r *http.Request) (subdomain string, err error) {
 	return
 }
 
+func (this *router) getRouter(method string, controller string, action string) (Router, error) {
+	var rns []*routeNamespace
+	switch strings.ToUpper(method) {
+	case GET:
+		rns = this.RouteRegister.get
+	case POST:
+		rns = this.RouteRegister.post
+	case PUT:
+		rns = this.RouteRegister.put
+	case DELETE:
+		rns = this.RouteRegister.delete
+	case "ANY":
+		rns = this.RouteRegister.any
+	default:
+		return Router{}, fmt.Errorf("no router %s to %s:%s", method, controller, action)
+	}
+
+	for _, rn := range rns {
+		for _, r := range rn.routers {
+			if r.ControllerName == controller && r.Method.Name == action {
+				return *r, nil
+			}
+		}
+	}
+	return Router{}, fmt.Errorf("no router %s to %s:%s", method, controller, action)
+}
+
 type RouteNotFoundError struct {
 	path string
 }
@@ -289,7 +316,7 @@ func (r Router) GetRouter(method string, controller string, action string) (Rout
 	case "ANY":
 		rns = r.register.any
 	default:
-		return Router{}, fmt.Errorf("not found router with %s:%s:%s", method, controller, action)
+		return Router{}, fmt.Errorf("no router %s to %s:%s", method, controller, action)
 	}
 
 	for _, rn := range rns {
@@ -299,7 +326,7 @@ func (r Router) GetRouter(method string, controller string, action string) (Rout
 			}
 		}
 	}
-	return Router{}, fmt.Errorf("not found router with %s:%s:%s", method, controller, action)
+	return Router{}, fmt.Errorf("no router %s to %s:%s", method, controller, action)
 }
 
 type routeNamespace struct {
