@@ -156,42 +156,34 @@ type HttpResponse struct {
 	Body   [][]byte
 }
 
-func (r *HttpResponse) SetCookie(name, value string, expireSec int64) {
-	var cookie http.Cookie
-	if expireSec > 0 {
-		cookie = http.Cookie{
-			Name:       name,
-			Value:      value,
-			Path:       "/",
-			Expires:    time.Unix(time.Now().Unix() + expireSec, 0),
-		}
-	} else {
-		cookie = http.Cookie{
-			Name:       name,
-			Value:      value,
-			Path:       "/",
-		}
+func (r *HttpResponse) SetCookie(name, value string, maxAge int) {
+	cookie := http.Cookie{
+		Name:   name,
+		Value:  value,
+		Path:   "/",
+		MaxAge: maxAge,
 	}
 	r.writer.Header().Set("Set-Cookie", cookie.String())
 }
 
-func (r *HttpResponse) AddCookie(name, value string, expireSec int64) {
-	var cookie http.Cookie
-	if expireSec > 0 {
-		cookie = http.Cookie{
-			Name:       name,
-			Value:      value,
-			Path:       "/",
-			Expires:    time.Unix(time.Now().Unix() + expireSec, 0),
-		}
-	} else {
-		cookie = http.Cookie{
-			Name:       name,
-			Value:      value,
-			Path:       "/",
-		}
+func (r *HttpResponse) AddCookie(name, value string, maxAge int) {
+	cookie := http.Cookie{
+		Name:   name,
+		Value:  value,
+		Path:   "/",
+		MaxAge: maxAge,
 	}
 	r.writer.Header().Add("Set-Cookie", cookie.String())
+}
+
+func (r *HttpResponse) RemoveCookie(name string) {
+	cookie := http.Cookie{
+		Name:    name,
+		Value:   "",
+		Path:    "/",
+		Expires: time.Unix(time.Now().Unix()-86400, 0),
+	}
+	r.writer.Header().Set("Set-Cookie", cookie.String())
 }
 
 func (r *HttpResponse) Append(body []byte) *HttpResponse {

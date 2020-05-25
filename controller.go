@@ -21,6 +21,10 @@ func (this *WgoController) SetCookie(name, value string) {
 	this.Response.SetCookie(name, value, 0)
 }
 
+func (this *WgoController) RemoveCookie(name string) {
+	this.Response.RemoveCookie(name)
+}
+
 func (this *WgoController) AppendBody(body []byte) *WgoController {
 	this.Response.Append(body)
 	return this
