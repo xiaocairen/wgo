@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -97,14 +98,6 @@ func GetApp() *app {
 
 func (this *app) Run() {
 	onceAppRun.Do(func() {
-		h := struct {
-			Addr string `json:"addr"`
-			Port int    `json:"port"`
-		}{}
-		if err := this.configurator.GetStruct("http", &h); err != nil {
-			panic(err)
-		}
-
 		this.router = &router{RouteCollection: this.routeCollection}
 		s := &server{app: this, Configurator: this.configurator, Router: this.router}
 		this.router.init([]RouteControllerInjector{s})
@@ -113,13 +106,20 @@ func (this *app) Run() {
 		this.startTaskers()
 
 		mux := http.NewServeMux()
-		mux.Handle("/static/", http.FileServer(http.Dir("web")))
-		mux.Handle("/assets/", http.FileServer(http.Dir("web")))
-		mux.Handle("/favicon.ico", http.FileServer(http.Dir("web")))
+
+		dirs := this.getStaticFileDirs()
+		if len(dirs) > 0 {
+			for _, dir := range dirs {
+				mux.Handle("/" + dir + "/", http.FileServer(http.Dir("web")))
+			}
+			mux.Handle("/favicon.ico", http.FileServer(http.Dir("web")))
+		}
+
 		mux.Handle("/", s)
 
+		host, port := this.getHostAndPort()
 		server := &http.Server{
-			Addr:              h.Addr + ":" + strconv.Itoa(h.Port),
+			Addr:              host + ":" + strconv.Itoa(port),
 			Handler:           mux,
 			TLSConfig:         nil,
 			ReadTimeout:       30 * time.Second,
@@ -138,6 +138,36 @@ func (this *app) Run() {
 			log.Fatal(err)
 		}
 	})
+}
+
+func (this *app) getHostAndPort() (host string, port int) {
+	h := struct {
+		Addr string `json:"addr"`
+		Port int    `json:"port"`
+	}{}
+	if err := this.configurator.GetStruct("http", &h); err != nil {
+		panic(err)
+	}
+
+	host = h.Addr
+	port = h.Port
+	return
+}
+
+func (this *app) getStaticFileDirs() []string {
+	var (
+		dirs string
+		sd   []string
+	)
+	this.configurator.GetStr("static_file_dirs", &dirs)
+	if len(dirs) > 0 {
+		tmp := strings.Split(dirs, ",")
+		for _, s := range tmp {
+			sd = append(sd, strings.Trim(strings.TrimSpace(s), "/"))
+		}
+	}
+
+	return sd
 }
 
 func (this *app) startTaskers() {
