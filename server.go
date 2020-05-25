@@ -43,8 +43,8 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	cve.FieldByName("Router").Set(reflect.ValueOf(router))
 	cve.FieldByName("Service").Set(reflect.ValueOf(svc))
-	cve.FieldByName("HttpRequest").Set(reflect.ValueOf(req))
-	cve.FieldByName("HttpResponse").Set(reflect.ValueOf(res))
+	cve.FieldByName("Request").Set(reflect.ValueOf(req))
+	cve.FieldByName("Response").Set(reflect.ValueOf(res))
 
 	for _, iface := range this.app.reqControllerInjectorChain {
 		iface.InjectRequestController(router, cve, svc)
@@ -194,20 +194,20 @@ func (this server) InjectRouteController(controller interface{}) {
 		log.Panicf("Service of %s can't be assignableTo", name)
 	}
 
-	sf, _ = ctltyp.FieldByName("HttpRequest")
+	sf, _ = ctltyp.FieldByName("Request")
 	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*wgo.HttpRequest" {
-		log.Panicf("HttpRequest of %s must be ptr to struct wgo.HttpRequest", name)
+		log.Panicf("Request of %s must be ptr to struct wgo.HttpRequest", name)
 	}
-	if !ctlval.FieldByName("HttpRequest").CanSet() {
-		log.Panicf("HttpRequest of %s can't be assignableTo", name)
+	if !ctlval.FieldByName("Request").CanSet() {
+		log.Panicf("Request of %s can't be assignableTo", name)
 	}
 
-	sf, _ = ctltyp.FieldByName("HttpResponse")
+	sf, _ = ctltyp.FieldByName("Response")
 	if sf.Type.Kind() != reflect.Ptr || sf.Type.Elem().Kind() != reflect.Struct || sf.Type.String() != "*wgo.HttpResponse" {
-		log.Panicf("HttpResponse of %s must be ptr to struct wgo.HttpResponse", name)
+		log.Panicf("Response of %s must be ptr to struct wgo.HttpResponse", name)
 	}
-	if !ctlval.FieldByName("HttpResponse").CanSet() {
-		log.Panicf("HttpResponse of %s can't be assignableTo", name)
+	if !ctlval.FieldByName("Response").CanSet() {
+		log.Panicf("Response of %s can't be assignableTo", name)
 	}
 
 	src := reflect.ValueOf(this.Configurator)

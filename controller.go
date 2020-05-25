@@ -13,22 +13,22 @@ type WgoController struct {
 	Router       Router
 	Template     *template.Template
 	Service      *service.Service
-	HttpRequest  *HttpRequest
-	HttpResponse *HttpResponse
+	Request      *HttpRequest
+	Response     *HttpResponse
 }
 
 func (this *WgoController) AppendBody(body []byte) *WgoController {
-	this.HttpResponse.Append(body)
+	this.Response.Append(body)
 	return this
 }
 
 func (this *WgoController) Render(body []byte) []byte {
-	return this.HttpResponse.Send(body)
+	return this.Response.Send(body)
 }
 
 func (this *WgoController) RenderJson(body interface{}) []byte {
-	this.HttpResponse.SetHeader("content-type", "application/json")
-	return this.HttpResponse.SendJson(body)
+	this.Response.SetHeader("content-type", "application/json")
+	return this.Response.SendJson(body)
 }
 
 func (this *WgoController) RenderHtml(filename string, data interface{}) (string, interface{}) {
