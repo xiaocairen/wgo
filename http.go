@@ -96,30 +96,12 @@ func (r *HttpRequest) GetRequestInt(key string) int64 {
 	return i
 }
 
-func (r *HttpRequest) SetCookie(name, value string, maxAge int, secure, httpOnly bool) {
-	cookie := &http.Cookie{
-		Name:       name,
-		Value:      value,
-		Path:       "/",
-		Domain:     "",
-		Expires:    time.Time{},
-		RawExpires: "",
-		MaxAge:     maxAge,
-		Secure:     secure,
-		HttpOnly:   httpOnly,
-		SameSite:   0,
-		Raw:        "",
-		Unparsed:   nil,
-	}
-	r.Request.AddCookie(cookie)
+func (r *HttpRequest) GetCookie(name string) (*http.Cookie, error) {
+	return r.Request.Cookie(name)
 }
 
-func (r *HttpRequest) GetCookie(name string) string {
-	c, e := r.Request.Cookie(name)
-	if e == http.ErrNoCookie {
-		return ""
-	}
-	return c.String()
+func (r *HttpRequest) GetCookies() []*http.Cookie {
+	return r.Request.Cookies()
 }
 
 func (r *HttpRequest) GetHeader(key string) string {
@@ -172,6 +154,44 @@ func (r *HttpRequest) IsAjax() bool {
 type HttpResponse struct {
 	writer http.ResponseWriter
 	Body   [][]byte
+}
+
+func (r *HttpResponse) SetCookie(name, value string, expireSec int64) {
+	var cookie http.Cookie
+	if expireSec > 0 {
+		cookie = http.Cookie{
+			Name:       name,
+			Value:      value,
+			Path:       "/",
+			Expires:    time.Unix(time.Now().Unix() + expireSec, 0),
+		}
+	} else {
+		cookie = http.Cookie{
+			Name:       name,
+			Value:      value,
+			Path:       "/",
+		}
+	}
+	r.writer.Header().Set("Set-Cookie", cookie.String())
+}
+
+func (r *HttpResponse) AddCookie(name, value string, expireSec int64) {
+	var cookie http.Cookie
+	if expireSec > 0 {
+		cookie = http.Cookie{
+			Name:       name,
+			Value:      value,
+			Path:       "/",
+			Expires:    time.Unix(time.Now().Unix() + expireSec, 0),
+		}
+	} else {
+		cookie = http.Cookie{
+			Name:       name,
+			Value:      value,
+			Path:       "/",
+		}
+	}
+	r.writer.Header().Add("Set-Cookie", cookie.String())
 }
 
 func (r *HttpResponse) Append(body []byte) *HttpResponse {
