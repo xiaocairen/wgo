@@ -647,17 +647,17 @@ func Encrypt(rawData, key, iv []byte) (string, error) {
 	return base64.RawStdEncoding.EncodeToString(data), nil
 }
 
-func Decrypt(encData string, key, iv []byte) (string, error) {
+func Decrypt(encData string, key, iv []byte) ([]byte, error) {
 	tmpData, err := base64.RawStdEncoding.DecodeString(encData)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	decData, err := AesCBCDecrypt(tmpData, key, iv)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return string(decData), nil
+	return decData, nil
 }
 
 func zeroPadding(ciphertext []byte, blockSize int) []byte {
