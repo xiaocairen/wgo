@@ -32,7 +32,7 @@ type app struct {
 	routeControllerInjectorChain []RouteControllerInjector
 	reqControllerInjectorChain   []RequestControllerInjector
 	tableCollection              service.TableCollection
-	htmlTemplate                 *template.Template
+	template                     *template.Template
 	taskers                      []Tasker
 	finally                      Finally
 }
@@ -171,8 +171,8 @@ func (this *app) AddRequestControllerInjector(injector RequestControllerInjector
 //}
 
 func (this *app) SetHtmlTemplate(tpl *template.Template) {
-	if nil == this.htmlTemplate {
-		this.htmlTemplate = tpl
+	if nil == this.template {
+		this.template = tpl
 	}
 }
 

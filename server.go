@@ -132,7 +132,7 @@ func (this *server) render(w http.ResponseWriter, cv reflect.Value, router Route
 		default:
 			log.Panicf("%s of %s return must be (string, interface{}) or (*template.Template, interface{})", router.Method.Name, router.ControllerName)
 		case reflect.String:
-			this.app.htmlTemplate.ExecuteTemplate(w, r1.String(), r2)
+			this.app.template.ExecuteTemplate(w, r1.String(), r2)
 		case reflect.Ptr:
 			re1 := rt1.Elem()
 			if re1.Kind() != reflect.Struct || re1.String() != "template.Template" {
@@ -217,10 +217,10 @@ func (this server) InjectRouteController(controller interface{}) {
 	}
 	dst.Set(src)
 
-	if nil == this.app.htmlTemplate {
-		this.app.htmlTemplate = template.New("WgoTemplateEngine")
+	if nil == this.app.template {
+		this.app.template = template.New("WgoTemplateEngine")
 	}
-	src = reflect.ValueOf(this.app.htmlTemplate)
+	src = reflect.ValueOf(this.app.template)
 	dst = ctlval.FieldByName("Template")
 	if !dst.CanSet() || !src.Type().AssignableTo(dst.Type()) {
 		log.Panicf("Template of %s can't be assignableTo", name)
