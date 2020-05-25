@@ -153,46 +153,53 @@ func (this *app) startTaskers() {
 	}
 }
 
-func (this *app) SetRouteCollection(rc RouteCollection) {
+func (this *app) SetRouteCollection(rc RouteCollection) *app {
 	if nil == this.routeCollection {
 		this.routeCollection = rc
 	}
+	return this
 }
 
-func (this *app) SetTableCollection(tc service.TableCollection) {
+func (this *app) SetTableCollection(tc service.TableCollection) *app {
 	if nil == this.tableCollection {
 		this.tableCollection = tc
 	}
+	return this
 }
 
-func (this *app) AddRequestControllerInjector(injector RequestControllerInjector) {
+func (this *app) AddRequestControllerInjector(injector RequestControllerInjector) *app {
 	this.reqControllerInjectorChain = append(this.reqControllerInjectorChain, injector)
+	return this
 }
 
 //func (this *app) AddRouteControllerInjector(injector RouteControllerInjector) {
 //	this.routeControllerInjectorChain = append(this.routeControllerInjectorChain, injector)
 //}
 
-func (this *app) SetHtmlPath(path string) {
+func (this *app) SetHtmlPath(path string) *app {
 	if "" == this.templatePath {
 		this.templatePath = path
 	}
+	return this
 }
 
-func (this *app) SetHtmlFuncs(fnmap template.FuncMap) {
+func (this *app) SetHtmlFuncs(fnmap template.FuncMap) *app {
 	if nil == this.templateFuncs {
 		this.templateFuncs = fnmap
 	}
+	return this
 }
 
-func (this *app) AddTasker(tasker Tasker) {
+func (this *app) AddTasker(tasker Tasker) *app {
 	this.taskers = append(this.taskers, tasker)
+	return this
 }
 
-func (this *app) SetFinally(f Finally) {
+func (this *app) SetFinally(f Finally) *app {
 	if nil == this.finally {
 		this.finally = f
 	}
+	return this
 }
 
 func (this *app) GetConfigurator() *config.Configurator {
