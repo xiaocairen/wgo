@@ -17,6 +17,14 @@ type WgoController struct {
 	Response     *HttpResponse
 }
 
+func (this *WgoController) GetCookie(name string) string {
+	c, e := this.Request.GetCookie(name)
+	if e != nil {
+		return ""
+	}
+	return c.Value
+}
+
 func (this *WgoController) SetCookie(name, value string, maxAge int) {
 	this.Response.SetCookie(name, value, maxAge, false, true)
 }
