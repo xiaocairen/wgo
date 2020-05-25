@@ -113,8 +113,8 @@ func (this *app) Run() {
 		this.startTaskers()
 
 		mux := http.NewServeMux()
-		mux.Handle("/page/", http.StripPrefix("/page/", http.FileServer(http.Dir("web"))))
 		mux.Handle("/static/", http.FileServer(http.Dir("web")))
+		mux.Handle("/assets/", http.FileServer(http.Dir("web")))
 		mux.Handle("/favicon.ico", http.FileServer(http.Dir("web")))
 		mux.Handle("/", s)
 
