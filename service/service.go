@@ -311,8 +311,8 @@ func (s *svc) UpdateByPrimaryKeys(values []interface{}, data map[string]interfac
 	}
 
 	var (
-		res sql.Result
-		err error
+		res    sql.Result
+		err    error
 		update = msql.Update{
 			Table:     msql.Table{Table: s.table.tableName},
 			SetValues: data,
@@ -337,8 +337,8 @@ func (s *svc) UpdateByField(field string, value interface{}, data map[string]int
 	}
 
 	var (
-		res sql.Result
-		err error
+		res    sql.Result
+		err    error
 		update = msql.Update{
 			Table:     msql.Table{Table: s.table.tableName},
 			SetValues: data,
@@ -615,7 +615,7 @@ func (s *svc) LoadBy(where *msql.WhereCondition, orderBy []string, limit, offset
 	}).Query().ScanStructAll(s.target)
 }
 
-func (s *svc) LoadPaginator(selection *msql.Select, curPage, pageSize uint64) (*Paginator, error) {
+func (s *svc) LoadPaginator(selection *msql.Select, curPage, pageSize int64) (*Paginator, error) {
 	if s.newErr != nil {
 		return nil, s.newErr
 	}
@@ -630,6 +630,7 @@ func (s *svc) LoadPaginator(selection *msql.Select, curPage, pageSize uint64) (*
 
 	return &Paginator{
 		Conn:      s.conn,
+		target:    s.target,
 		Selection: selection,
 		CurPage:   curPage,
 		PerSize:   pageSize,

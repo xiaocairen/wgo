@@ -8,13 +8,14 @@ import (
 type Paginator struct {
 	Conn      *mdb.Conn
 	Selection *msql.Select
-	CurPage   uint64
-	PerSize   uint64
-	maxPage   uint64
+	target    interface{}
+	CurPage   int64
+	PerSize   int64
+	maxPage   int64
 	results   [][]interface{}
 }
 
-func (p *Paginator) GetMaxPage() uint64 {
+func (p *Paginator) GetMaxPage() int64 {
 	if p.CurPage > 1 && p.maxPage > 0 {
 		return p.maxPage
 	}
@@ -28,18 +29,18 @@ func (p *Paginator) GetMaxPage() uint64 {
 
 // target must be ptr to struct,
 // return []interface{} will be a targets slice.
-func (p *Paginator) GetCurPageTargets(target interface{}) ([]interface{}, error) {
-	p.Selection.Limit = msql.LimitOffset(p.calcOffset(), p.PerSize)
-	return p.Conn.Select(*p.Selection).Query().ScanStructAll(target)
+func (p *Paginator) GetCurPageTargets() ([]interface{}, error) {
+	p.Selection.Limit = msql.LimitOffset(uint64(p.calcOffset()), uint64(p.PerSize))
+	return p.Conn.Select(*p.Selection).Query().ScanStructAll(p.target)
 }
 
 func (p *Paginator) QueryResults() *rows {
-	p.Selection.Limit = msql.LimitOffset(p.calcOffset(), p.PerSize)
+	p.Selection.Limit = msql.LimitOffset(uint64(p.calcOffset()), uint64(p.PerSize))
 	rs := p.Conn.Select(*p.Selection).Query()
-	return &rows{rows:rs}
+	return &rows{rows: rs}
 }
 
-func (p *Paginator) calcOffset() uint64 {
+func (p *Paginator) calcOffset() int64 {
 	return (p.CurPage - 1) * p.PerSize
 }
 
