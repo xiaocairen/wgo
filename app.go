@@ -237,6 +237,15 @@ func (this *app) GetConfigurator() *config.Configurator {
 }
 
 func initLogger() {
+	var outer int
+	if e := appInstance.configurator.GetInt("log_outer", &outer); e != nil {
+		log.Panic(e)
+	}
+
+	if outer == 0 {
+		return
+	}
+
 	if _, err := os.Stat("log"); nil != err {
 		if !os.IsExist(err) {
 			if err := os.Mkdir("log", os.ModePerm); nil != err {
