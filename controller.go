@@ -15,6 +15,7 @@ type WgoController struct {
 	Service      *service.Service
 	Request      *HttpRequest
 	Response     *HttpResponse
+	ShareData    []map[string]interface{}
 }
 
 func (this *WgoController) GetCookie(name string) string {
@@ -38,6 +39,10 @@ func (this *WgoController) AppendBody(body []byte) *WgoController {
 	return this
 }
 
+func (this *WgoController) AddShare(data map[string]interface{}) {
+	this.ShareData = append(this.ShareData, data)
+}
+
 func (this *WgoController) Render(body []byte) []byte {
 	return this.Response.Send(body)
 }
@@ -48,7 +53,7 @@ func (this *WgoController) RenderJson(body interface{}) []byte {
 }
 
 func (this *WgoController) RenderHtml(filename string, data interface{}) (string, interface{}) {
-	return filename, data
+	return filename, mergeShareDatas(data, this.ShareData)
 }
 
 func (this *WgoController) RenderHtmlStr(htmlStr string, data interface{}) (*template.Template, interface{}) {
@@ -59,9 +64,9 @@ func (this *WgoController) RenderHtmlStr(htmlStr string, data interface{}) (*tem
 		if err != nil {
 			log.Panic(err)
 		}
-		return tpl, data
+		return tpl, mergeShareDatas(data, this.ShareData)
 	} else {
-		return t, data
+		return t, mergeShareDatas(data, this.ShareData)
 	}
 }
 
@@ -98,4 +103,24 @@ func (this *WgoController) FailureExtras(msg string, code int, extras interface{
 		Extras    interface{} `json:"extras,omitempty"`
 	}{Success: false, ErrorCode: code, ErrorMsg: msg, Extras: extras})
 	return
+}
+
+func mergeShareDatas(dst interface{}, datas []map[string]interface{}) interface{} {
+	if len(datas) == 0 {
+		return dst
+	}
+	si, ok := dst.(map[string]interface{})
+	if !ok {
+		return dst
+	}
+
+	for _, m := range datas {
+		for k, i := range m {
+			_, f := si[k]
+			if !f {
+				si[k] = i
+			}
+		}
+	}
+	return si
 }
