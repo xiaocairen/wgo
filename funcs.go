@@ -6,14 +6,14 @@ var tplBuiltins = template.FuncMap{
 	"url": tplUrl,
 }
 
-func tplUrl(args ...string) string {
+func tplUrl(args ...string) template.URL {
 	if len(args) != 3 {
 		return "func url need 3 arguments"
 	}
 	r, e := appInstance.router.getRouter(args[0], args[1], args[2])
 	if e != nil {
-		return e.Error()
+		return template.URL(e.Error())
 	}
 
-	return r.Path
+	return template.URL(r.Path)
 }
