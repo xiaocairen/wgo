@@ -106,9 +106,24 @@ func (this *WgoController) FailureExtras(msg string, code int, extras interface{
 }
 
 func mergeShareDatas(dst interface{}, datas []map[string]interface{}) interface{} {
-	if len(datas) == 0 {
+	n := len(datas)
+	if n == 0 {
 		return dst
 	}
+
+	if nil == dst {
+		if n == 1 {
+			return datas[0]
+		}
+
+		for _, m := range datas[1:] {
+			for k, i := range m {
+				datas[0][k] = i
+			}
+		}
+		return datas[0]
+	}
+
 	si, ok := dst.(map[string]interface{})
 	if !ok {
 		return dst
