@@ -132,13 +132,18 @@ func (this *server) render(w http.ResponseWriter, cv reflect.Value, router Route
 		default:
 			log.Panicf("%s of %s return must be (string, interface{}) or (*template.Template, interface{})", router.Method.Name, router.ControllerName)
 		case reflect.String:
-			this.app.template.ExecuteTemplate(w, r1.String(), r2)
+			if e := this.app.template.ExecuteTemplate(w, r1.String(), r2); nil != e {
+				log.Panic(e)
+			}
 		case reflect.Ptr:
 			re1 := rt1.Elem()
 			if re1.Kind() != reflect.Struct || re1.String() != "template.Template" {
 				log.Panicf("%s of %s return must be (string, interface{}) or (template.Template, interface{})", router.Method.Name, router.ControllerName)
 			}
-			r1.MethodByName("Execute").Call([]reflect.Value{reflect.ValueOf(w), r2})
+			cr := r1.MethodByName("Execute").Call([]reflect.Value{reflect.ValueOf(w), r2})
+			if len(cr) > 0 && !cr[0].IsNil() {
+				log.Panic(cr[0].Interface())
+			}
 		}
 	}
 }
