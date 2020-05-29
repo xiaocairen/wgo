@@ -118,7 +118,6 @@ func (this *app) Run() {
 
 		mux.Handle("/", s)
 
-		host, port := this.getHostAndPort()
 		server := &http.Server{
 			Handler:           mux,
 			TLSConfig:         nil,
@@ -127,27 +126,31 @@ func (this *app) Run() {
 			WriteTimeout:      30 * time.Second,
 			IdleTimeout:       0,
 			MaxHeaderBytes:    1 << 20,
-			TLSNextProto:      nil,
-			ConnState:         nil,
-			ErrorLog:          nil,
-			BaseContext:       nil,
-			ConnContext:       nil,
 		}
 
-		l, e := reuse.Listen("tcp", host + ":" + strconv.Itoa(port))
-		if e != nil {
-			log.Fatal(e)
-		}
-		if e := server.Serve(l); e != nil {
-			log.Fatal(e)
+		host, port, pr := this.getHostAndPort()
+		if pr {
+			l, e := reuse.Listen("tcp", host + ":" + strconv.Itoa(port))
+			if e != nil {
+				log.Fatal(e)
+			}
+			if e := server.Serve(l); e != nil {
+				log.Fatal(e)
+			}
+		} else {
+			server.Addr = host + ":" + strconv.Itoa(port)
+			if e := server.ListenAndServe(); e != nil {
+				log.Fatal(e)
+			}
 		}
 	})
 }
 
-func (this *app) getHostAndPort() (host string, port int) {
+func (this *app) getHostAndPort() (host string, port int, reuse bool) {
 	h := struct {
-		Addr string `json:"addr"`
-		Port int    `json:"port"`
+		Addr      string `json:"addr"`
+		Port      int    `json:"port"`
+		PortReuse bool   `json:"port_reuse"`
 	}{}
 	if err := this.configurator.GetStruct("http", &h); err != nil {
 		panic(err)
@@ -155,6 +158,7 @@ func (this *app) getHostAndPort() (host string, port int) {
 
 	host = h.Addr
 	port = h.Port
+	reuse = h.PortReuse
 	return
 }
 
