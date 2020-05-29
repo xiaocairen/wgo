@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/xiaocairen/wgo/config"
 	"github.com/xiaocairen/wgo/mdb"
+	"github.com/xiaocairen/wgo/reuse"
 	"github.com/xiaocairen/wgo/service"
 	"github.com/xiaocairen/wgo/tool"
 	"html/template"
@@ -110,7 +111,7 @@ func (this *app) Run() {
 		dirs := this.getStaticFileDirs()
 		if len(dirs) > 0 {
 			for _, dir := range dirs {
-				mux.Handle("/" + dir + "/", http.FileServer(http.Dir("web")))
+				mux.Handle("/"+dir+"/", http.FileServer(http.Dir("web")))
 			}
 			mux.Handle("/favicon.ico", http.FileServer(http.Dir("web")))
 		}
@@ -119,7 +120,6 @@ func (this *app) Run() {
 
 		host, port := this.getHostAndPort()
 		server := &http.Server{
-			Addr:              host + ":" + strconv.Itoa(port),
 			Handler:           mux,
 			TLSConfig:         nil,
 			ReadTimeout:       30 * time.Second,
@@ -134,8 +134,12 @@ func (this *app) Run() {
 			ConnContext:       nil,
 		}
 
-		if err := server.ListenAndServe(); err != nil {
-			log.Fatal(err)
+		l, e := reuse.Listen("tcp", host + ":" + strconv.Itoa(port))
+		if e != nil {
+			log.Fatal(e)
+		}
+		if e := server.Serve(l); e != nil {
+			log.Fatal(e)
 		}
 	})
 }
