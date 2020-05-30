@@ -279,7 +279,7 @@ func (s *svc) Update() (int64, error) {
 	return res.RowsAffected()
 }
 
-func (s *svc) UpdateByPrimaryKey(value int64, data map[string]interface{}) (int64, error) {
+func (s *svc) UpdateByPrimaryKey(value interface{}, data map[string]interface{}) (int64, error) {
 	if s.newErr != nil {
 		return 0, s.newErr
 	}
@@ -305,14 +305,9 @@ func (s *svc) UpdateByPrimaryKey(value int64, data map[string]interface{}) (int6
 	return res.RowsAffected()
 }
 
-func (s *svc) UpdateByPrimaryKeys(values []int64, data map[string]interface{}) (int64, error) {
+func (s *svc) UpdateByPrimaryKeys(values []interface{}, data map[string]interface{}) (int64, error) {
 	if s.newErr != nil {
 		return 0, s.newErr
-	}
-
-	vs := make([]interface{}, len(values))
-	for k, v := range values {
-		vs[k] = v
 	}
 
 	var (
@@ -321,7 +316,7 @@ func (s *svc) UpdateByPrimaryKeys(values []int64, data map[string]interface{}) (
 		update = msql.Update{
 			Table:     msql.Table{Table: s.table.tableName},
 			SetValues: data,
-			Where:     msql.In(s.table.primaryKey, vs),
+			Where:     msql.In(s.table.primaryKey, values),
 		}
 	)
 	if s.service.in {
