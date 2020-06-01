@@ -1,6 +1,7 @@
 package service
 
 import (
+	"math"
 	"github.com/xiaocairen/wgo/mdb"
 	"github.com/xiaocairen/wgo/mdb/msql"
 )
@@ -12,6 +13,7 @@ type Paginator struct {
 	CurPage   int64
 	PerSize   int64
 	maxPage   int64
+	total     int64
 	results   [][]interface{}
 }
 
@@ -20,11 +22,21 @@ func (p *Paginator) GetMaxPage() int64 {
 		return p.maxPage
 	}
 
+	total := p.GetTotal()
+	p.maxPage = int64(math.Ceil(float64(total) / float64(p.PerSize)))
+	return p.maxPage
+}
+
+func (p *Paginator) GetTotal() int64 {
+	if p.CurPage > 1 && p.total > 0 {
+		return p.total
+	}
+
 	query := p.Selection.BuildCountQuery()
-	if err := p.Conn.QueryRow(query.Sql, query.Params...).Scan(&p.maxPage); err != nil {
+	if err := p.Conn.QueryRow(query.Sql, query.Params...).Scan(&p.total); err != nil {
 		return 0
 	}
-	return p.maxPage
+	return p.total
 }
 
 // target must be ptr to struct,
