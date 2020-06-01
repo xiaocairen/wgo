@@ -27,7 +27,7 @@ func (this *WgoController) GetCookie(name string) string {
 }
 
 func (this *WgoController) SetCookie(name, value string, maxAge int) {
-	this.Response.SetCookie(name, value, maxAge, false, true)
+	this.Response.SetCookie(name, value, "/", maxAge, false, true)
 }
 
 func (this *WgoController) DelCookie(name string) {

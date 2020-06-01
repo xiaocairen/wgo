@@ -155,13 +155,13 @@ type HttpResponse struct {
 	Body   [][]byte
 }
 
-func (r *HttpResponse) SetCookie(name, value string, maxAge int, secure, httpOnly bool) {
-	c := http.Cookie{Name: name, Value: value, MaxAge: maxAge, Secure: secure, HttpOnly: httpOnly}
+func (r *HttpResponse) SetCookie(name, value, path string, maxAge int, secure, httpOnly bool) {
+	c := http.Cookie{Name: name, Value: value, Path: path, MaxAge: maxAge, Secure: secure, HttpOnly: httpOnly}
 	r.writer.Header().Set("Set-Cookie", c.String())
 }
 
-func (r *HttpResponse) AddCookie(name, value string, maxAge int, secure, httpOnly bool) {
-	c := http.Cookie{Name: name, Value: value, MaxAge: maxAge, Secure: secure, HttpOnly: httpOnly}
+func (r *HttpResponse) AddCookie(name, value, path string, maxAge int, secure, httpOnly bool) {
+	c := http.Cookie{Name: name, Value: value, Path: path, MaxAge: maxAge, Secure: secure, HttpOnly: httpOnly}
 	r.writer.Header().Add("Set-Cookie", c.String())
 }
 
