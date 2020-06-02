@@ -41,12 +41,12 @@ func (p *Paginator) GetTotal() int64 {
 
 // target must be ptr to struct,
 // return []interface{} will be a targets slice.
-func (p *Paginator) GetPageTargets() ([]interface{}, error) {
+func (p *Paginator) LoadPageResult() ([]interface{}, error) {
 	p.Selection.Limit = msql.LimitOffset(uint64(p.calcOffset()), uint64(p.PerSize))
 	return p.Conn.Select(*p.Selection).Query().ScanStructAll(p.target)
 }
 
-func (p *Paginator) LoadPageTargets(target interface{}) ([]interface{}, error) {
+func (p *Paginator) LoadPageTarget(target interface{}) ([]interface{}, error) {
 	p.Selection.Limit = msql.LimitOffset(uint64(p.calcOffset()), uint64(p.PerSize))
 	return p.Conn.Select(*p.Selection).Query().ScanStructAll(target)
 }
