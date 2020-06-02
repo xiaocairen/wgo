@@ -457,6 +457,31 @@ func (s *svc) DeleteByField(field string, value interface{}) (int64, error) {
 	return res.RowsAffected()
 }
 
+func (s *svc) Has(where *msql.WhereCondition, groupBy []string) (bool, error) {
+	if s.newErr != nil {
+		return false, s.newErr
+	}
+
+	var total int64
+	err := s.conn.Select(msql.Select{
+		Select:  msql.Fields("COUNT(*)"),
+		From:    msql.Table{Table: s.table.tableName},
+		Where:   where,
+		GroupBy: groupBy,
+	}).QueryRow().Scan(&total)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if nil != err {
+		return false, err
+	}
+
+	if total > 0 {
+		return true, nil
+	}
+	return false, nil
+}
+
 func (s *svc) Load(primaryVal interface{}, with ...string) error {
 	if s.newErr != nil {
 		return s.newErr
