@@ -343,7 +343,7 @@ func And(and ...interface{}) *WhereCondition {
 		}
 	}
 	return &WhereCondition{
-		where: strings.Join(where, " OR "),
+		where: strings.Join(where, " AND "),
 		param: param,
 		err:   err,
 	}
@@ -382,7 +382,7 @@ func Or(or ...interface{}) *WhereCondition {
 		}
 	}
 	return &WhereCondition{
-		where: strings.Join(where, " AND "),
+		where: strings.Join(where, " OR "),
 		param: param,
 		err:   err,
 	}
