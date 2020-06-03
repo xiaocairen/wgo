@@ -200,13 +200,13 @@ func (s *svc) Create() (int64, error) {
 	return id, nil
 }
 
-func (s *svc) CreateMulti(data []map[string]interface{}) (num int, err error) {
+func (s *svc) CreateMulti(data []map[string]interface{}) (num int64, err error) {
 	if s.newErr != nil {
 		err = s.newErr
 		return
 	}
 
-	num = len(data)
+	num = int64(len(data))
 	if nil == data || 0 == num {
 		err = fmt.Errorf("param data of CreateMulti() is empty")
 		return
