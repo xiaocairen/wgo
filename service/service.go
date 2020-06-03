@@ -172,9 +172,9 @@ type svc struct {
 	newErr     error
 }
 
-func (s *svc) Create() (int64, error) {
+func (s *svc) Create() error {
 	if s.newErr != nil {
-		return 0, s.newErr
+		return s.newErr
 	}
 
 	var (
@@ -192,12 +192,12 @@ func (s *svc) Create() (int64, error) {
 		res, err = s.conn.Insert(insert).Exec()
 	}
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	id, _ := res.LastInsertId()
 	rv.FieldByName(s.table.primaryField.Name).Set(reflect.ValueOf(id))
-	return id, nil
+	return nil
 }
 
 func (s *svc) CreateMulti(data []map[string]interface{}) (num int64, err error) {
