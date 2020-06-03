@@ -155,7 +155,7 @@ func (this *server) finally(res http.ResponseWriter, req *http.Request) {
 		} else {
 			b, _ := json.Marshal(map[string]interface{}{
 				"success":   false,
-				"error_msg": e,
+				"error_msg": fmt.Sprintf("%s", e),
 			})
 			res.Write(b)
 		}
