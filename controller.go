@@ -31,7 +31,7 @@ func (this *WgoController) SetCookie(name, value string, maxAge int) {
 }
 
 func (this *WgoController) DelCookie(name string) {
-	this.Response.DelCookie(name)
+	this.Response.DelCookie(name, "/")
 }
 
 func (this *WgoController) AppendBody(body []byte) *WgoController {

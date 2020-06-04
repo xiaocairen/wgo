@@ -165,8 +165,8 @@ func (r *HttpResponse) AddCookie(name, value, path string, maxAge int, secure, h
 	r.writer.Header().Add("Set-Cookie", c.String())
 }
 
-func (r *HttpResponse) DelCookie(name string) {
-	c := http.Cookie{Name: name, Value: "", MaxAge: -1}
+func (r *HttpResponse) DelCookie(name string, path string) {
+	c := http.Cookie{Name: name, Value: "", Path: path, MaxAge: -1}
 	r.writer.Header().Set("Set-Cookie", c.String())
 }
 
