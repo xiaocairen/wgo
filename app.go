@@ -271,71 +271,83 @@ func initLogger() {
 }
 
 func parseDbConfig(dbc interface{}, dbcs *[]*mdb.DBConfig) error {
-	if s, ok := dbc.([]interface{}); ok {
-		for _, v := range s {
+	switch val := dbc.(type) {
+	case []interface{}:
+		for _, v := range val {
 			m, ok := v.(map[string]interface{})
 			if !ok {
 				return fmt.Errorf("db config must be []map[string]interface{}")
 			}
+
 			var dbc mdb.DBConfig
 			tool.StructFill(&m, &dbc)
 			*dbcs = append(*dbcs, &dbc)
 		}
-		return nil
 
-	} else if m, ok := dbc.(map[string]interface{}); ok {
-		if _, f := m["driver"]; f {
+	case map[string]interface{}:
+		if _, f := val["driver"]; f {
 			var dbc mdb.DBConfig
-			tool.StructFill(&m, &dbc)
+			tool.StructFill(&val, &dbc)
 			*dbcs = append(*dbcs, &dbc)
-		} else {
-			write, fw := m["write"]
-			read, fr := m["read"]
-			if !fw || !fr {
-				return fmt.Errorf("read and write db must be both exist")
-			}
+			return nil
+		}
 
-			if ws, ok := write.([]interface{}); ok {
-				for _, v := range ws {
-					m, ok := v.(map[string]interface{})
-					if !ok {
-						return fmt.Errorf("db config must be map[string]interface{}")
-					}
-					var dbc mdb.DBConfig
-					tool.StructFill(&m, &dbc)
-					dbc.ReadOrWrite = mdb.ONLY_WRITE
-					*dbcs = append(*dbcs, &dbc)
+		write, wb := val["write"]
+		read, rb := val["read"]
+		if !wb || !rb {
+			return fmt.Errorf("read and write db must be both exist")
+		}
+
+		switch wval := write.(type) {
+		case []interface{}:
+			for _, v := range wval {
+				m, ok := v.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("db config must be map[string]interface{}")
 				}
-			} else if m, ok := write.(map[string]interface{}); ok {
+
 				var dbc mdb.DBConfig
 				tool.StructFill(&m, &dbc)
 				dbc.ReadOrWrite = mdb.ONLY_WRITE
 				*dbcs = append(*dbcs, &dbc)
-			} else {
-				return fmt.Errorf("db config must be map or slice")
 			}
 
-			if rs, ok := read.([]interface{}); ok {
-				for _, v := range rs {
-					m, ok := v.(map[string]interface{})
-					if !ok {
-						return fmt.Errorf("db config must be map[string]interface{}")
-					}
-					var dbc mdb.DBConfig
-					tool.StructFill(&m, &dbc)
-					dbc.ReadOrWrite = mdb.ONLY_READ
-					*dbcs = append(*dbcs, &dbc)
+		case map[string]interface{}:
+			var dbc mdb.DBConfig
+			tool.StructFill(&wval, &dbc)
+			dbc.ReadOrWrite = mdb.ONLY_WRITE
+			*dbcs = append(*dbcs, &dbc)
+
+		default:
+			fmt.Errorf("db config must be map or slice")
+		}
+
+		switch rval := read.(type) {
+		case []interface{}:
+			for _, v := range rval {
+				m, ok := v.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("db config must be map[string]interface{}")
 				}
-			} else if m, ok := read.(map[string]interface{}); ok {
+
 				var dbc mdb.DBConfig
 				tool.StructFill(&m, &dbc)
 				dbc.ReadOrWrite = mdb.ONLY_READ
 				*dbcs = append(*dbcs, &dbc)
-			} else {
-				return fmt.Errorf("db config must be map or slice")
 			}
+
+		case map[string]interface{}:
+			var dbc mdb.DBConfig
+			tool.StructFill(&rval, &dbc)
+			dbc.ReadOrWrite = mdb.ONLY_READ
+			*dbcs = append(*dbcs, &dbc)
+
+		default:
+			return fmt.Errorf("db config must be map or slice")
 		}
-		return nil
+
+	default:
+		fmt.Errorf("db config must be map or slice")
 	}
-	return fmt.Errorf("db config must be map or slice")
+	return nil
 }
