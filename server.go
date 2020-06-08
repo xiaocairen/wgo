@@ -154,8 +154,8 @@ func (this *server) finally(res http.ResponseWriter, req *http.Request) {
 			res.Write(tool.String2Bytes(fmt.Sprintf("%s\n\n%s", e, debug.Stack())))
 		} else {
 			b, _ := json.Marshal(map[string]interface{}{
-				"success":   false,
-				"error_msg": fmt.Sprintf("%s", e),
+				"code": 1001,
+				"msg":  fmt.Sprintf("%s", e),
 			})
 			res.Write(b)
 		}

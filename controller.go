@@ -72,36 +72,34 @@ func (this *WgoController) RenderHtmlStr(htmlStr string, data interface{}) (*tem
 
 func (this *WgoController) Success(body interface{}) (json []byte) {
 	json = this.RenderJson(struct {
-		Success bool        `json:"success"`
-		Data    interface{} `json:"data,omitempty"`
-	}{Success: true, Data: body})
+		Code int         `json:"code"`
+		Data interface{} `json:"data,omitempty"`
+	}{Code: 0, Data: body})
 	return
 }
-func (this *WgoController) SuccessExtras(body interface{}, extras interface{}) (json []byte) {
+func (this *WgoController) SuccessExtra(body interface{}, extra interface{}) (json []byte) {
 	json = this.RenderJson(struct {
-		Success bool        `json:"success"`
-		Data    interface{} `json:"data,omitempty"`
-		Extras  interface{} `json:"extras,omitempty"`
-	}{Success: true, Data: body, Extras: extras})
-	return
-}
-
-func (this *WgoController) Failure(msg string, code int) (json []byte) {
-	json = this.RenderJson(struct {
-		Success   bool   `json:"success"`
-		ErrorCode int    `json:"error_code,omitempty"`
-		ErrorMsg  string `json:"error_msg,omitempty"`
-	}{Success: false, ErrorCode: code, ErrorMsg: msg})
+		Code  int        `json:"code"`
+		Data  interface{} `json:"data,omitempty"`
+		Extra interface{} `json:"extra,omitempty"`
+	}{Code: 0, Data: body, Extra: extra})
 	return
 }
 
-func (this *WgoController) FailureExtras(msg string, code int, extras interface{}) (json []byte) {
+func (this *WgoController) Failure(code int, msg string) (json []byte) {
 	json = this.RenderJson(struct {
-		Success   bool        `json:"success"`
-		ErrorCode int         `json:"error_code,omitempty"`
-		ErrorMsg  string      `json:"error_msg,omitempty"`
-		Extras    interface{} `json:"extras,omitempty"`
-	}{Success: false, ErrorCode: code, ErrorMsg: msg, Extras: extras})
+		Code int    `json:"code"`
+		Msg  string `json:"msg,omitempty"`
+	}{Code: code, Msg: msg})
+	return
+}
+
+func (this *WgoController) FailureExtra(code int, msg string, extra interface{}) (json []byte) {
+	json = this.RenderJson(struct {
+		Code  int         `json:"code"`
+		Msg   string      `json:"msg,omitempty"`
+		Extra interface{} `json:"extra,omitempty"`
+	}{Code: code, Msg: msg, Extra: extra})
 	return
 }
 
