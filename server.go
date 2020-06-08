@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"reflect"
 	"runtime/debug"
+	"strings"
 )
 
 type server struct {
@@ -149,17 +150,42 @@ func (this *server) render(w http.ResponseWriter, cv reflect.Value, router Route
 }
 
 func (this *server) finally(res http.ResponseWriter, req *http.Request) {
-	if e := recover(); e != nil {
-		if this.app.debug {
-			res.Write(tool.String2Bytes(fmt.Sprintf("%s\n\n%s", e, debug.Stack())))
-		} else {
-			b, _ := json.Marshal(map[string]interface{}{
-				"code": 1001,
-				"msg":  fmt.Sprintf("%s", e),
-			})
-			res.Write(b)
-		}
+	e := recover()
+	if e == nil {
+		return
 	}
+
+	var msg string
+	if this.app.debug {
+		stacks := strings.Split(string(debug.Stack()), "\n")
+		var key int
+		for k, s := range stacks {
+			if strings.Contains(s, "reflect.Value.call") {
+				key = k - 1
+				break
+			}
+		}
+
+		if key < 2 {
+			res.Write(tool.String2Bytes(fmt.Sprintf("%s\n\n%s", e, debug.Stack())))
+			return
+		}
+
+		var (
+			fnPos   = strings.LastIndex(stacks[key-1], "/")
+			lastPos = strings.LastIndex(stacks[key], "/")
+			nextPos = strings.LastIndex(stacks[key][:lastPos], "/")
+		)
+		msg = fmt.Sprintf("%s at file %s func %s", e, stacks[key][nextPos:], stacks[key-1][fnPos:])
+	} else {
+		msg = fmt.Sprintf("%s", e)
+	}
+
+	b, _ := json.Marshal(map[string]interface{}{
+		"code": -1,
+		"msg":  msg,
+	})
+	res.Write(b)
 }
 
 func (this *server) InjectRouteController(controller interface{}) {
