@@ -667,14 +667,18 @@ func (r *Rows) scanStruct(ote reflect.Type, ove reflect.Value, coltype []*sql.Co
 			values[k] = new(string)
 		default:
 			switch ct.ScanType().Name() {
+			case "NullInt32":
+				values[k] = new(sql.NullInt32)
 			case "NullInt64":
-				values[k] = new(int64)
+				values[k] = new(sql.NullInt64)
 			case "NullFloat64":
-				values[k] = new(float64)
+				values[k] = new(sql.NullFloat64)
 			case "NullString":
-				values[k] = new(string)
+				values[k] = new(sql.NullString)
 			case "NullBool":
-				values[k] = new(bool)
+				values[k] = new(sql.NullBool)
+			case "NullTime":
+				values[k] = new(sql.NullTime)
 			}
 		}
 	}
@@ -786,6 +790,36 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 						org.Set(reflect.ValueOf(i))
 					}
 				}
+			case reflect.Struct:
+				switch valType.Name() {
+				case "NullInt32":
+					v, _ := value.(sql.NullInt32)
+					if v.Valid {
+						org.Set(reflect.ValueOf(int(v.Int32)))
+					}
+				case "NullInt64":
+					v, _ := value.(sql.NullInt64)
+					if v.Valid {
+						org.Set(reflect.ValueOf(int(v.Int64)))
+					}
+				case "NullFloat64":
+				case "NullString":
+					v, _ := value.(sql.NullString)
+					if v.Valid {
+						if i, e := strconv.Atoi(v.String); e == nil {
+							org.Set(reflect.ValueOf(i))
+						}
+					}
+				case "NullBool":
+					v, _ := value.(sql.NullBool)
+					if v.Valid {
+						if v.Bool {
+							org.Set(reflect.ValueOf(1))
+						} else {
+							org.Set(reflect.ValueOf(0))
+						}
+					}
+				}
 			}
 
 		case reflect.Int8:
@@ -804,6 +838,40 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 				if s, ok := value.(string); ok {
 					if i, e := strconv.Atoi(s); e == nil && i >= INT8_MIN && i <= INT8_MAX {
 						org.Set(reflect.ValueOf(int8(i)))
+					}
+				}
+			case reflect.Struct:
+				switch valType.Name() {
+				case "NullInt32":
+					v, _ := value.(sql.NullInt32)
+					if v.Valid {
+						if v.Int32 >= INT8_MIN && v.Int32 <= INT8_MAX {
+							org.Set(reflect.ValueOf(int8(v.Int32)))
+						}
+					}
+				case "NullInt64":
+					v, _ := value.(sql.NullInt64)
+					if v.Valid {
+						if v.Int64 >= INT8_MIN && v.Int64 <= INT8_MAX {
+							org.Set(reflect.ValueOf(int8(v.Int64)))
+						}
+					}
+				case "NullFloat64":
+				case "NullString":
+					v, _ := value.(sql.NullString)
+					if v.Valid {
+						if i, e := strconv.Atoi(v.String); e == nil && i >= INT8_MIN && i <= INT8_MAX {
+							org.Set(reflect.ValueOf(int8(i)))
+						}
+					}
+				case "NullBool":
+					v, _ := value.(sql.NullBool)
+					if v.Valid {
+						if v.Bool {
+							org.Set(reflect.ValueOf(1))
+						} else {
+							org.Set(reflect.ValueOf(0))
+						}
 					}
 				}
 			}
@@ -826,6 +894,39 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 						org.Set(reflect.ValueOf(int16(i)))
 					}
 				}
+			case reflect.Struct:
+				switch valType.Name() {
+				case "NullInt32":
+					v, _ := value.(sql.NullInt32)
+					if v.Valid {
+						if v.Int32 >= INT16_MIN && v.Int32 <= INT16_MAX {
+							org.Set(reflect.ValueOf(int16(v.Int32)))
+						}
+					}
+				case "NullInt64":
+					v, _ := value.(sql.NullInt64)
+					if v.Valid {
+						if v.Int64 >= INT16_MIN && v.Int64 <= INT16_MAX {
+							org.Set(reflect.ValueOf(int16(v.Int64)))
+						}
+					}
+				case "NullString":
+					v, _ := value.(sql.NullString)
+					if v.Valid {
+						if i, e := strconv.Atoi(v.String); e == nil && i >= INT16_MIN && i <= INT16_MAX {
+							org.Set(reflect.ValueOf(int16(i)))
+						}
+					}
+				case "NullBool":
+					v, _ := value.(sql.NullBool)
+					if v.Valid {
+						if v.Bool {
+							org.Set(reflect.ValueOf(1))
+						} else {
+							org.Set(reflect.ValueOf(0))
+						}
+					}
+				}
 			}
 
 		case reflect.Int32:
@@ -846,6 +947,37 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 						org.Set(reflect.ValueOf(int32(i)))
 					}
 				}
+			case reflect.Struct:
+				switch valType.Name() {
+				case "NullInt32":
+					v, _ := value.(sql.NullInt32)
+					if v.Valid {
+						org.Set(reflect.ValueOf(v.Int32))
+					}
+				case "NullInt64":
+					v, _ := value.(sql.NullInt64)
+					if v.Valid {
+						if v.Int64 >= INT32_MIN && v.Int64 <= INT32_MAX {
+							org.Set(reflect.ValueOf(int32(v.Int64)))
+						}
+					}
+				case "NullString":
+					v, _ := value.(sql.NullString)
+					if v.Valid {
+						if i, e := strconv.Atoi(v.String); e == nil {
+							org.Set(reflect.ValueOf(int32(i)))
+						}
+					}
+				case "NullBool":
+					v, _ := value.(sql.NullBool)
+					if v.Valid {
+						if v.Bool {
+							org.Set(reflect.ValueOf(1))
+						} else {
+							org.Set(reflect.ValueOf(0))
+						}
+					}
+				}
 			}
 
 		case reflect.Int64:
@@ -858,6 +990,35 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 				if s, ok := value.(string); ok {
 					if i, e := strconv.Atoi(s); e == nil {
 						org.Set(reflect.ValueOf(int64(i)))
+					}
+				}
+			case reflect.Struct:
+				switch valType.Name() {
+				case "NullInt32":
+					v, _ := value.(sql.NullInt32)
+					if v.Valid {
+						org.Set(reflect.ValueOf(v.Int32))
+					}
+				case "NullInt64":
+					v, _ := value.(sql.NullInt64)
+					if v.Valid {
+						org.Set(reflect.ValueOf(v.Int64))
+					}
+				case "NullString":
+					v, _ := value.(sql.NullString)
+					if v.Valid {
+						if i, e := strconv.Atoi(v.String); e == nil {
+							org.Set(reflect.ValueOf(i))
+						}
+					}
+				case "NullBool":
+					v, _ := value.(sql.NullBool)
+					if v.Valid {
+						if v.Bool {
+							org.Set(reflect.ValueOf(1))
+						} else {
+							org.Set(reflect.ValueOf(0))
+						}
 					}
 				}
 			}
@@ -875,6 +1036,35 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 				if s, ok := value.(string); ok {
 					if i, e := strconv.Atoi(s); e == nil && i >= 0 {
 						org.Set(reflect.ValueOf(uint(i)))
+					}
+				}
+			case reflect.Struct:
+				switch valType.Name() {
+				case "NullInt32":
+					v, _ := value.(sql.NullInt32)
+					if v.Valid && v.Int32 >= 0 {
+						org.Set(reflect.ValueOf(uint(v.Int32)))
+					}
+				case "NullInt64":
+					v, _ := value.(sql.NullInt64)
+					if v.Valid && v.Int64 >= 0 {
+						org.Set(reflect.ValueOf(uint(v.Int64)))
+					}
+				case "NullString":
+					v, _ := value.(sql.NullString)
+					if v.Valid {
+						if i, e := strconv.Atoi(v.String); e == nil && i >= 0 {
+							org.Set(reflect.ValueOf(uint(i)))
+						}
+					}
+				case "NullBool":
+					v, _ := value.(sql.NullBool)
+					if v.Valid {
+						if v.Bool {
+							org.Set(reflect.ValueOf(1))
+						} else {
+							org.Set(reflect.ValueOf(0))
+						}
 					}
 				}
 			}
@@ -897,6 +1087,35 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 						org.Set(reflect.ValueOf(uint8(i)))
 					}
 				}
+			case reflect.Struct:
+				switch valType.Name() {
+				case "NullInt32":
+					v, _ := value.(sql.NullInt32)
+					if v.Valid && v.Int32 >= 0 && v.Int32 <= UINT8_MAX {
+						org.Set(reflect.ValueOf(uint8(v.Int32)))
+					}
+				case "NullInt64":
+					v, _ := value.(sql.NullInt64)
+					if v.Valid && v.Int64 >= 0 && v.Int64 <= UINT8_MAX {
+						org.Set(reflect.ValueOf(uint8(v.Int64)))
+					}
+				case "NullString":
+					v, _ := value.(sql.NullString)
+					if v.Valid {
+						if i, e := strconv.Atoi(v.String); e == nil && i > 0 && i <= UINT8_MAX {
+							org.Set(reflect.ValueOf(uint8(i)))
+						}
+					}
+				case "NullBool":
+					v, _ := value.(sql.NullBool)
+					if v.Valid {
+						if v.Bool {
+							org.Set(reflect.ValueOf(1))
+						} else {
+							org.Set(reflect.ValueOf(0))
+						}
+					}
+				}
 			}
 
 		case reflect.Uint16:
@@ -915,6 +1134,35 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 				if s, ok := value.(string); ok {
 					if i, e := strconv.Atoi(s); e == nil && i >= 0 && i <= UINT16_MAX {
 						org.Set(reflect.ValueOf(uint16(i)))
+					}
+				}
+			case reflect.Struct:
+				switch valType.Name() {
+				case "NullInt32":
+					v, _ := value.(sql.NullInt32)
+					if v.Valid && v.Int32 >= 0 && v.Int32 <= UINT16_MAX {
+						org.Set(reflect.ValueOf(uint16(v.Int32)))
+					}
+				case "NullInt64":
+					v, _ := value.(sql.NullInt64)
+					if v.Valid && v.Int64 >= 0 && v.Int64 <= UINT16_MAX {
+						org.Set(reflect.ValueOf(uint16(v.Int64)))
+					}
+				case "NullString":
+					v, _ := value.(sql.NullString)
+					if v.Valid {
+						if i, e := strconv.Atoi(v.String); e == nil && i >= 0 && i <= UINT16_MAX {
+							org.Set(reflect.ValueOf(uint16(i)))
+						}
+					}
+				case "NullBool":
+					v, _ := value.(sql.NullBool)
+					if v.Valid {
+						if v.Bool {
+							org.Set(reflect.ValueOf(1))
+						} else {
+							org.Set(reflect.ValueOf(0))
+						}
 					}
 				}
 			}
@@ -937,6 +1185,36 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 						org.Set(reflect.ValueOf(uint32(i)))
 					}
 				}
+			case reflect.Struct:
+				switch valType.Name() {
+				case "NullInt32":
+					v, _ := value.(sql.NullInt32)
+					if v.Valid && v.Int32 >= 0 {
+						org.Set(reflect.ValueOf(uint32(v.Int32)))
+					}
+				case "NullInt64":
+					v, _ := value.(sql.NullInt64)
+					if v.Valid && v.Int64 >= 0 && v.Int64 <= UINT32_MAX {
+						org.Set(reflect.ValueOf(uint32(v.Int64)))
+					}
+				case "NullFloat64":
+				case "NullString":
+					v, _ := value.(sql.NullString)
+					if v.Valid {
+						if i, e := strconv.Atoi(v.String); e == nil && i >= 0 {
+							org.Set(reflect.ValueOf(uint32(i)))
+						}
+					}
+				case "NullBool":
+					v, _ := value.(sql.NullBool)
+					if v.Valid {
+						if v.Bool {
+							org.Set(reflect.ValueOf(1))
+						} else {
+							org.Set(reflect.ValueOf(0))
+						}
+					}
+				}
 			}
 
 		case reflect.Uint64:
@@ -952,6 +1230,35 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 				if s, ok := value.(string); ok {
 					if i, e := strconv.Atoi(s); e == nil {
 						org.Set(reflect.ValueOf(uint64(i)))
+					}
+				}
+			case reflect.Struct:
+				switch valType.Name() {
+				case "NullInt32":
+					v, _ := value.(sql.NullInt32)
+					if v.Valid && v.Int32 >= 0 {
+						org.Set(reflect.ValueOf(uint64(v.Int32)))
+					}
+				case "NullInt64":
+					v, _ := value.(sql.NullInt64)
+					if v.Valid && v.Int64 >= 0 {
+						org.Set(reflect.ValueOf(uint64(v.Int64)))
+					}
+				case "NullString":
+					v, _ := value.(sql.NullString)
+					if v.Valid {
+						if i, e := strconv.Atoi(v.String); e == nil && i >= 0 {
+							org.Set(reflect.ValueOf(uint64(i)))
+						}
+					}
+				case "NullBool":
+					v, _ := value.(sql.NullBool)
+					if v.Valid {
+						if v.Bool {
+							org.Set(reflect.ValueOf(1))
+						} else {
+							org.Set(reflect.ValueOf(0))
+						}
 					}
 				}
 			}
@@ -970,6 +1277,40 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 						org.Set(reflect.ValueOf(f))
 					}
 				}
+			case reflect.Struct:
+				switch valType.Name() {
+				case "NullInt32":
+					v, _ := value.(sql.NullInt32)
+					if v.Valid {
+						org.Set(reflect.ValueOf(float32(v.Int32)))
+					}
+				case "NullInt64":
+					v, _ := value.(sql.NullInt64)
+					if v.Valid {
+						org.Set(reflect.ValueOf(float32(v.Int64)))
+					}
+				case "NullFloat64":
+					v, _ := value.(sql.NullFloat64)
+					if v.Valid {
+						org.Set(reflect.ValueOf(float32(v.Float64)))
+					}
+				case "NullString":
+					v, _ := value.(sql.NullString)
+					if v.Valid {
+						if f, e := strconv.ParseFloat(v.String, 32); e == nil {
+							org.Set(reflect.ValueOf(f))
+						}
+					}
+				case "NullBool":
+					v, _ := value.(sql.NullBool)
+					if v.Valid {
+						if v.Bool {
+							org.Set(reflect.ValueOf(1))
+						} else {
+							org.Set(reflect.ValueOf(0))
+						}
+					}
+				}
 			}
 
 		case reflect.Float64:
@@ -986,6 +1327,40 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 						org.Set(reflect.ValueOf(f))
 					}
 				}
+			case reflect.Struct:
+				switch valType.Name() {
+				case "NullInt32":
+					v, _ := value.(sql.NullInt32)
+					if v.Valid {
+						org.Set(reflect.ValueOf(float64(v.Int32)))
+					}
+				case "NullInt64":
+					v, _ := value.(sql.NullInt64)
+					if v.Valid {
+						org.Set(reflect.ValueOf(float64(v.Int64)))
+					}
+				case "NullFloat64":
+					v, _ := value.(sql.NullFloat64)
+					if v.Valid {
+						org.Set(reflect.ValueOf(v.Float64))
+					}
+				case "NullString":
+					v, _ := value.(sql.NullString)
+					if v.Valid {
+						if f, e := strconv.ParseFloat(v.String, 64); e == nil {
+							org.Set(reflect.ValueOf(f))
+						}
+					}
+				case "NullBool":
+					v, _ := value.(sql.NullBool)
+					if v.Valid {
+						if v.Bool {
+							org.Set(reflect.ValueOf(1))
+						} else {
+							org.Set(reflect.ValueOf(0))
+						}
+					}
+				}
 			}
 
 		case reflect.String:
@@ -996,6 +1371,38 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 				org.Set(reflect.ValueOf(strconv.FormatInt(reflect.Indirect(reflect.ValueOf(value)).Int(), 64)))
 			case reflect.Float32, reflect.Float64:
 				org.Set(reflect.ValueOf(strconv.FormatFloat(reflect.Indirect(reflect.ValueOf(value)).Float(), 'f', -1, 64)))
+			case reflect.Struct:
+				switch valType.Name() {
+				case "NullInt32":
+					v, _ := value.(sql.NullInt32)
+					if v.Valid {
+						org.Set(reflect.ValueOf(strconv.Itoa(int(v.Int32))))
+					}
+				case "NullInt64":
+					v, _ := value.(sql.NullInt64)
+					if v.Valid {
+						org.Set(reflect.ValueOf(strconv.FormatInt(v.Int64, 10)))
+					}
+				case "NullFloat64":
+					v, _ := value.(sql.NullFloat64)
+					if v.Valid {
+						org.Set(reflect.ValueOf(strconv.FormatFloat(v.Float64, 'f', 6, 64)))
+					}
+				case "NullString":
+					v, _ := value.(sql.NullString)
+					if v.Valid {
+						org.Set(reflect.ValueOf(v.String))
+					}
+				case "NullBool":
+					v, _ := value.(sql.NullBool)
+					if v.Valid {
+						if v.Bool {
+							org.Set(reflect.ValueOf("true"))
+						} else {
+							org.Set(reflect.ValueOf("false"))
+						}
+					}
+				}
 			}
 		}
 	}
