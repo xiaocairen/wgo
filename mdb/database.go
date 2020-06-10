@@ -636,8 +636,7 @@ func (r *Rows) ScanStructAll(in interface{}) ([]interface{}, error) {
 func (r *Rows) scanStruct(ote reflect.Type, ove reflect.Value, coltype []*sql.ColumnType, fields []reflect.StructField) error {
 	values := make([]interface{}, len(coltype))
 	for k, ct := range coltype {
-		cr := ct.ScanType()
-		switch cr.Kind() {
+		switch ct.ScanType().Kind() {
 		case reflect.Uint:
 			values[k] = new(uint)
 		case reflect.Uint8:
@@ -666,6 +665,17 @@ func (r *Rows) scanStruct(ote reflect.Type, ove reflect.Value, coltype []*sql.Co
 			fallthrough
 		case reflect.String:
 			values[k] = new(string)
+		default:
+			switch ct.ScanType().Name() {
+			case "NullInt64":
+				values[k] = new(int64)
+			case "NullFloat64":
+				values[k] = new(float64)
+			case "NullString":
+				values[k] = new(string)
+			case "NullBool":
+				values[k] = new(bool)
+			}
 		}
 	}
 
