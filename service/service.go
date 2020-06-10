@@ -357,6 +357,32 @@ func (s *svc) UpdateByField(field string, value interface{}, data map[string]int
 	return res.RowsAffected()
 }
 
+func (s *svc) UpdateByWhere(where *msql.WhereCondition, data map[string]interface{}) (int64, error) {
+	if s.newErr != nil {
+		return 0, s.newErr
+	}
+
+	var (
+		res    sql.Result
+		err    error
+		update = msql.Update{
+			Table:     msql.Table{Table: s.table.tableName},
+			SetValues: data,
+			Where:     where,
+		}
+	)
+	if s.service.in {
+		res, err = s.service.tx.Update(update).Exec()
+	} else {
+		res, err = s.conn.Update(update).Exec()
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	return res.RowsAffected()
+}
+
 func (s *svc) Delete() (int64, error) {
 	if s.newErr != nil {
 		return 0, s.newErr
