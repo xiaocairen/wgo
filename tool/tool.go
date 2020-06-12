@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/rand"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -710,7 +711,7 @@ func CheckImageFormat(file string) (int, error) {
 	if n, e := f.Read(buf); e != nil {
 		return IMAGE_TYPE_UNKNOWN, e
 	} else if n != 8 {
-		return IMAGE_TYPE_UNKNOWN, fmt.Errorf("can not read image")
+		return IMAGE_TYPE_UNKNOWN, fmt.Errorf("can't read image")
 	}
 
 	if buf[0] == 0xff && buf[1] == 0xd8 && buf[2] == 0xff && buf[3] == 0xe1 { // jpg
