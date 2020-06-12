@@ -692,7 +692,7 @@ func pkcs7UnPadding(origData []byte) []byte {
 	return origData[:(length - unpadding)]
 }
 
-func CheckImageFormat(file string) (string, error) {
+func ImageFormatCheck(file string) (string, error) {
 	f, e := os.OpenFile(file, os.O_RDONLY, 0644)
 	if e != nil {
 		return "", e
