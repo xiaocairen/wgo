@@ -666,6 +666,26 @@ func (s *svc) LoadBy(where *msql.WhereCondition, orderBy []string, limit, offset
 	}).Query().ScanStructAll(s.target)
 }
 
+func (s *svc) LoadCount(where *msql.WhereCondition, groupBy []string, having *msql.WhereCondition) (int64, error) {
+	if s.newErr != nil {
+		return 0, s.newErr
+	}
+
+	var count int64
+	e := s.conn.Select(msql.Select{
+		Select:  msql.Fields("COUNT(*)"),
+		From:    msql.Table{Table: s.table.tableName},
+		Where:   where,
+		GroupBy: groupBy,
+		Having:  having,
+	}).QueryRow().Scan(&count)
+	if e != nil {
+		return 0, e
+	}
+
+	return count, nil
+}
+
 func (s *svc) LoadPaginator(selection *msql.Select, curPage, pageSize int64) (*Paginator, error) {
 	if s.newErr != nil {
 		return nil, s.newErr
