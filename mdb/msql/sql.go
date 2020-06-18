@@ -59,10 +59,10 @@ func (r Select) Build() SqlStatement {
 		orderBy = " ORDER BY " + strings.Join(r.OrderBy, ",")
 	}
 
-	n := len(r.Limit)
-	if 1 == n {
+	switch len(r.Limit) {
+	case 1:
 		limit = fmt.Sprintf(" LIMIT %d", r.Limit[0])
-	} else if n >= 2 {
+	case 2:
 		limit = fmt.Sprintf(" LIMIT %d, %d", r.Limit[0], r.Limit[1])
 	}
 
@@ -129,11 +129,13 @@ func (c Insert) Build() SqlStatement {
 		dku = append(dku, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	if 0 == len(dku) {
+	switch len(dku) {
+	case 0:
 		sql = fmt.Sprintf("INSERT %s SET %s", c.Into, strings.Join(set, ","))
-	} else {
+	default:
 		sql = fmt.Sprintf("INSERT %s SET %s ON DUPLICATE KEY UPDATE %s", c.Into, strings.Join(set, ","), strings.Join(dku, ","))
 	}
+
 	return SqlStatement{
 		Sql:    sql,
 		Params: params,
@@ -335,11 +337,11 @@ func And(and ...interface{}) *WhereCondition {
 				where = append(where, fmt.Sprintf("%s %s ?", f, opr))
 				param = append(param, and[i+2])
 			} else {
-				err = fmt.Errorf("'or' sql operator must be string, '%t'", and[i+1])
+				err = fmt.Errorf("'and' sql operator must be string, '%t'", and[i+1])
 			}
 			i += 3
 		} else {
-			err = fmt.Errorf("'or' sql field must be string or struct WhereCondition{}, '%t'", and[i])
+			err = fmt.Errorf("'and' sql field must be string or struct WhereCondition{}, '%t'", and[i])
 		}
 	}
 	return &WhereCondition{
