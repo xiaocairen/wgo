@@ -11,8 +11,10 @@ import (
 )
 
 const (
-	MKEY = "mkey"
-	FKEY = "fkey"
+	MKEY        = "mkey"
+	FKEY        = "fkey"
+	ASSOC_TABLE = "table"
+	ASSOC_ORDER = "order"
 )
 
 var (
@@ -645,9 +647,10 @@ func (s *svc) loadWith(with ...string) error {
 			}
 
 			all, err := s.conn.Select(msql.Select{
-				Select: msql.Fields(target.tableFields...),
-				From:   msql.Table{Table: target.tableName},
-				Where:  msql.Where(fkey, "=", ivalue),
+				Select:  msql.Fields(target.tableFields...),
+				From:    msql.Table{Table: target.tableName},
+				Where:   msql.Where(fkey, "=", ivalue),
+				OrderBy: msql.OrderBy(field.Tag.Get(ASSOC_ORDER)),
 			}).Query().ScanStructAll(target.target)
 			if err != nil {
 				fmt.Println(err)
@@ -749,9 +752,10 @@ func (s *svc) loadTargetWith(target interface{}, with ...string) error {
 			}
 
 			all, err := s.conn.Select(msql.Select{
-				Select: msql.Fields(target.tableFields...),
-				From:   msql.Table{Table: target.tableName},
-				Where:  msql.Where(fkey, "=", ivalue),
+				Select:  msql.Fields(target.tableFields...),
+				From:    msql.Table{Table: target.tableName},
+				Where:   msql.Where(fkey, "=", ivalue),
+				OrderBy: msql.OrderBy(field.Tag.Get(ASSOC_ORDER)),
 			}).Query().ScanStructAll(target.target)
 			if err != nil {
 				fmt.Println(err)
@@ -880,7 +884,10 @@ func (s *svc) getFieldValues() (fieldValues map[string]interface{}, targetValue 
 		if tt.Name == s.table.primaryField.Name {
 			primaryValue = reflect.Indirect(fv).Int()
 		} else {
-			fieldValues[tt.Tag.Get(mdb.STRUCT_TAG)] = fv.Interface()
+			dbtag := tt.Tag.Get(mdb.STRUCT_TAG)
+			if dbtag != "" {
+				fieldValues[dbtag] = fv.Interface()
+			}
 		}
 	}
 	return
