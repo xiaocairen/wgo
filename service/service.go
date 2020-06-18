@@ -544,6 +544,42 @@ func (s *svc) LoadOne(where *msql.WhereCondition, orderBy []string, with ...stri
 	return s.loadWith(with...)
 }
 
+func (s *svc) LoadTarget(target interface{}, primaryVal interface{}, with ...string) error {
+	if s.newErr != nil {
+		return s.newErr
+	}
+
+	err := s.conn.Select(msql.Select{
+		Select: msql.Fields(s.table.tableFields...),
+		From:   msql.Table{Table: s.table.tableName},
+		Where:  msql.Where(s.table.primaryKey, "=", primaryVal),
+	}).QueryRow().ScanStruct(target)
+	if nil != err {
+		return err
+	}
+
+	return s.loadTargetWith(target, with...)
+}
+
+func (s *svc) LoadOneTarget(target interface{}, where *msql.WhereCondition, orderBy []string, with ...string) error {
+	if s.newErr != nil {
+		return s.newErr
+	}
+
+	err := s.conn.Select(msql.Select{
+		Select:  msql.Fields(s.table.tableFields...),
+		From:    msql.Table{Table: s.table.tableName},
+		Where:   where,
+		OrderBy: orderBy,
+		Limit:   msql.Limit(1),
+	}).QueryRow().ScanStruct(target)
+	if nil != err {
+		return err
+	}
+
+	return s.loadTargetWith(target, with...)
+}
+
 func (s *svc) loadWith(with ...string) error {
 	if len(with) == 0 {
 		return nil
@@ -583,11 +619,9 @@ func (s *svc) loadWith(with ...string) error {
 			return fmt.Errorf("not found mkey tag '%s' relate field of %s", mkey, s.table.structName)
 		}
 
-		var (
-			kind   = field.Type.Kind()
-			ivalue = rvalue.FieldByName(mfield.Name).Interface()
-		)
-		if reflect.Ptr == kind {
+		ivalue := rvalue.FieldByName(mfield.Name).Interface()
+		switch field.Type.Kind() {
+		case reflect.Ptr:
 			target := s.service.loadTableByName(field.Type.String())
 			if nil == target {
 				return fmt.Errorf("not found relation table struct '%s'", field.Type.String())
@@ -603,7 +637,112 @@ func (s *svc) loadWith(with ...string) error {
 			}
 
 			rvalue.FieldByName(field.Name).Set(reflect.ValueOf(out))
-		} else if reflect.Slice == kind {
+
+		case reflect.Slice:
+			target := s.service.loadTableByName(field.Type.String()[2:])
+			if nil == target {
+				return fmt.Errorf("not found relation table struct '%s'", field.Type.String()[2:])
+			}
+
+			all, err := s.conn.Select(msql.Select{
+				Select: msql.Fields(target.tableFields...),
+				From:   msql.Table{Table: target.tableName},
+				Where:  msql.Where(fkey, "=", ivalue),
+			}).Query().ScanStructAll(target.target)
+			if err != nil {
+				fmt.Println(err)
+				return err
+			}
+
+			n := len(all)
+			if n > 0 {
+				s := reflect.MakeSlice(field.Type, n, n)
+				for i, iface := range all {
+					v := s.Index(i)
+					v.Set(reflect.ValueOf(iface))
+				}
+				rvalue.FieldByName(field.Name).Set(s)
+			}
+		}
+	}
+	return nil
+}
+
+func (s *svc) loadTargetWith(target interface{}, with ...string) error {
+	if len(with) == 0 {
+		return nil
+	}
+
+	var (
+		targetTyp    = reflect.TypeOf(target)
+		targetVal    = reflect.ValueOf(target)
+		rvalue       = targetVal.Elem()
+		rtype        = targetTyp.Elem()
+		numField     = rtype.NumField()
+		targetFields = make([]reflect.StructField, numField)
+	)
+	for i := 0; i < numField; i++ {
+		field := rtype.Field(i)
+		if field.Anonymous {
+			continue
+		}
+
+		targetFields[i] = field
+	}
+
+	for _, sn := range with {
+		var field *reflect.StructField
+		for _, f := range targetFields {
+			if sn == f.Name {
+				field = &f
+				break
+			}
+		}
+		if nil == field {
+			return fmt.Errorf("unkown field '%s' in %s", sn, s.table.structName)
+		}
+
+		var (
+			mkey   = field.Tag.Get(MKEY)
+			fkey   = field.Tag.Get(FKEY)
+			mfield *reflect.StructField
+		)
+		if "" == mkey {
+			return fmt.Errorf("not found mkey tag in field '%s' of %s", sn, s.table.structName)
+		}
+		if "" == fkey {
+			return fmt.Errorf("not found fkey tag in field '%s' of %s", sn, s.table.structName)
+		}
+		for _, f := range targetFields {
+			if mkey == f.Tag.Get(mdb.STRUCT_TAG) {
+				mfield = &f
+				break
+			}
+		}
+		if nil == mfield {
+			return fmt.Errorf("not found mkey tag '%s' relate field of %s", mkey, s.table.structName)
+		}
+
+		ivalue := rvalue.FieldByName(mfield.Name).Interface()
+		switch field.Type.Kind() {
+		case reflect.Ptr:
+			target := s.service.loadTableByName(field.Type.String())
+			if nil == target {
+				return fmt.Errorf("not found relation table struct '%s'", field.Type.String())
+			}
+
+			out := reflect.New(field.Type.Elem()).Interface()
+			if e := s.conn.Select(msql.Select{
+				Select: msql.Fields(target.tableFields...),
+				From:   msql.Table{Table: target.tableName},
+				Where:  msql.Where(fkey, "=", ivalue),
+			}).QueryRow().ScanStruct(out); e != nil {
+				return e
+			}
+
+			rvalue.FieldByName(field.Name).Set(reflect.ValueOf(out))
+
+		case reflect.Slice:
 			target := s.service.loadTableByName(field.Type.String()[2:])
 			if nil == target {
 				return fmt.Errorf("not found relation table struct '%s'", field.Type.String()[2:])
