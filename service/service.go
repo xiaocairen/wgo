@@ -641,6 +641,10 @@ func (s *svc) LoadAll(where *msql.WhereCondition, orderBy []string) ([]interface
 		return nil, s.newErr
 	}
 
+	if nil == orderBy {
+		orderBy = msql.OrderBy(s.table.primaryKey + " DESC")
+	}
+
 	return s.conn.Select(msql.Select{
 		Select:  msql.Fields(s.table.tableFields...),
 		From:    msql.Table{Table: s.table.tableName},
@@ -655,6 +659,10 @@ func (s *svc) LoadAll(where *msql.WhereCondition, orderBy []string) ([]interface
 func (s *svc) LoadBy(where *msql.WhereCondition, orderBy []string, limit, offset uint64) ([]interface{}, error) {
 	if s.newErr != nil {
 		return nil, s.newErr
+	}
+
+	if nil == orderBy {
+		orderBy = msql.OrderBy(s.table.primaryKey + " DESC")
 	}
 
 	return s.conn.Select(msql.Select{
