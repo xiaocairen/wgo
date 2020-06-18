@@ -646,11 +646,21 @@ func (s *svc) loadWith(with ...string) error {
 				return fmt.Errorf("not found relation table struct '%s'", field.Type.String()[2:])
 			}
 
+			var (
+				orderBy    []string
+				assocOrder = field.Tag.Get(ASSOC_ORDER)
+			)
+			if len(assocOrder) > 0 {
+				orderBy = msql.OrderBy(assocOrder)
+			} else {
+				orderBy = msql.OrderBy(target.primaryKey + " DESC")
+			}
+
 			all, err := s.conn.Select(msql.Select{
 				Select:  msql.Fields(target.tableFields...),
 				From:    msql.Table{Table: target.tableName},
 				Where:   msql.Where(fkey, "=", ivalue),
-				OrderBy: msql.OrderBy(field.Tag.Get(ASSOC_ORDER)),
+				OrderBy: orderBy,
 			}).Query().ScanStructAll(target.target)
 			if err != nil {
 				fmt.Println(err)
@@ -751,11 +761,21 @@ func (s *svc) loadTargetWith(target interface{}, with ...string) error {
 				return fmt.Errorf("not found relation table struct '%s'", field.Type.String()[2:])
 			}
 
+			var (
+				orderBy    []string
+				assocOrder = field.Tag.Get(ASSOC_ORDER)
+			)
+			if len(assocOrder) > 0 {
+				orderBy = msql.OrderBy(assocOrder)
+			} else {
+				orderBy = msql.OrderBy(target.primaryKey + " DESC")
+			}
+
 			all, err := s.conn.Select(msql.Select{
 				Select:  msql.Fields(target.tableFields...),
 				From:    msql.Table{Table: target.tableName},
 				Where:   msql.Where(fkey, "=", ivalue),
-				OrderBy: msql.OrderBy(field.Tag.Get(ASSOC_ORDER)),
+				OrderBy: orderBy,
 			}).Query().ScanStructAll(target.target)
 			if err != nil {
 				fmt.Println(err)
