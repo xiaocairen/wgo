@@ -59,17 +59,13 @@ func (this *router) searchRoute(routes []*routeNamespace, r *http.Request) (rout
 		return
 	}
 
-	var subdomain string
-	if subdomain, err = this.parseHost(r); err != nil {
-		return
-	}
-
 	var (
 		routeIt *routeNamespace
 		routeSp *routeNamespace
+		domain  = this.parseHost(r)
 	)
 	for key, rns := range routes {
-		if rns.subdomain == subdomain {
+		if strings.Contains(domain, rns.subdomain+".") {
 			routeIt = routes[key]
 			break
 		} else if rns.subdomain == "*" {
@@ -209,29 +205,12 @@ func (this *router) searchRoute(routes []*routeNamespace, r *http.Request) (rout
 	return
 }
 
-func (this *router) parseHost(r *http.Request) (subdomain string, err error) {
+func (this *router) parseHost(r *http.Request) string {
 	reg := regexp.MustCompile(`^(?i:\d+\.\d+\.\d+\.\d+|localhost)(:\d+)?$`)
 	if reg.MatchString(r.Host) {
-		subdomain = "www"
-	} else {
-		ln := strings.LastIndexByte(r.Host, '.')
-		if -1 == ln || 0 == ln {
-			err = fmt.Errorf("bad host '%s'", r.Host)
-			return
-		}
-
-		sn := strings.LastIndexByte(r.Host[0:ln], '.')
-		switch sn {
-		case -1:
-			subdomain = "www"
-		case 0:
-			err = fmt.Errorf("bad host '%s'", r.Host)
-			return
-		default:
-			subdomain = r.Host[0:sn]
-		}
+		return "www.example.com"
 	}
-	return
+	return r.Host
 }
 
 func (this *router) getRouter(method string, controller string, action string) (Router, error) {
