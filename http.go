@@ -96,7 +96,7 @@ func (r *HttpRequest) GetPost(key string) string {
 }
 
 func (r *HttpRequest) GetPostInt(key string) int64 {
-	v := r.Post(key)
+	v := r.GetPost(key)
 	if "" == v {
 		return 0
 	}
@@ -108,7 +108,7 @@ func (r *HttpRequest) GetPostInt(key string) int64 {
 }
 
 func (r *HttpRequest) GetPostFloat(key string) float64 {
-	v := r.Post(key)
+	v := r.GetPost(key)
 	if "" == v {
 		return 0
 	}
@@ -142,7 +142,7 @@ func (r *HttpRequest) GetPostIntSlice(key string) []int64 {
 }
 
 func (r *HttpRequest) GetRequest(key string) string {
-	v := r.Post(key)
+	v := r.GetPost(key)
 	if "" == v {
 		v = r.Get(key)
 	}
@@ -150,7 +150,7 @@ func (r *HttpRequest) GetRequest(key string) string {
 }
 
 func (r *HttpRequest) GetRequestInt(key string) int64 {
-	i := r.PostInt(key)
+	i := r.GetPostInt(key)
 	if 0 == i {
 		i = r.GetInt(key)
 	}
