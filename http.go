@@ -60,11 +60,34 @@ func (r *HttpRequest) GetInt(key string) int64 {
 	return i
 }
 
+func (r *HttpRequest) GetSlice(key string) []string {
+	return r.query[key]
+}
+
+func (r *HttpRequest) GetIntSlice(key string) []int64 {
+	ret := make([]int64, len(r.query[key]))
+	for k, s := range r.query[key] {
+		if i, e := strconv.ParseInt(s, 10, 64); e == nil {
+			ret[k] = i
+		} else {
+			ret[k] = 0
+		}
+	}
+	return ret
+}
+
 func (r *HttpRequest) Post(key string) string {
 	if nil == r.Request.PostForm {
 		return ""
 	}
 	return r.Request.PostForm.Get(key)
+}
+
+func (r *HttpRequest) PostSlice(key string) []string {
+	if nil == r.Request.PostForm {
+		return nil
+	}
+	return r.Request.PostForm[key]
 }
 
 func (r *HttpRequest) PostInt(key string) int64 {
@@ -77,6 +100,21 @@ func (r *HttpRequest) PostInt(key string) int64 {
 		return 0
 	}
 	return i
+}
+
+func (r *HttpRequest) PostIntSlice(key string) []int64 {
+	if nil == r.Request.PostForm {
+		return nil
+	}
+	ret := make([]int64, len(r.Request.PostForm[key]))
+	for k, s := range r.Request.PostForm[key] {
+		if i, e := strconv.ParseInt(s, 10, 64); e == nil {
+			ret[k] = i
+		} else {
+			ret[k] = 0
+		}
+	}
+	return ret
 }
 
 func (r *HttpRequest) GetRequest(key string) string {
