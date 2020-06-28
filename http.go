@@ -60,6 +60,18 @@ func (r *HttpRequest) GetInt(key string) int64 {
 	return i
 }
 
+func (r *HttpRequest) GetFloat(key string) float64 {
+	v := r.query.Get(key)
+	if "" == v {
+		return 0
+	}
+	f, e := strconv.ParseFloat(v, 64)
+	if e != nil {
+		return 0
+	}
+	return f
+}
+
 func (r *HttpRequest) GetSlice(key string) []string {
 	return r.query[key]
 }
@@ -76,21 +88,14 @@ func (r *HttpRequest) GetIntSlice(key string) []int64 {
 	return ret
 }
 
-func (r *HttpRequest) Post(key string) string {
+func (r *HttpRequest) GetPost(key string) string {
 	if nil == r.Request.PostForm {
 		return ""
 	}
 	return r.Request.PostForm.Get(key)
 }
 
-func (r *HttpRequest) PostSlice(key string) []string {
-	if nil == r.Request.PostForm {
-		return nil
-	}
-	return r.Request.PostForm[key]
-}
-
-func (r *HttpRequest) PostInt(key string) int64 {
+func (r *HttpRequest) GetPostInt(key string) int64 {
 	v := r.Post(key)
 	if "" == v {
 		return 0
@@ -102,7 +107,26 @@ func (r *HttpRequest) PostInt(key string) int64 {
 	return i
 }
 
-func (r *HttpRequest) PostIntSlice(key string) []int64 {
+func (r *HttpRequest) GetPostFloat(key string) float64 {
+	v := r.Post(key)
+	if "" == v {
+		return 0
+	}
+	f, e := strconv.ParseFloat(v, 64)
+	if e != nil {
+		return 0
+	}
+	return f
+}
+
+func (r *HttpRequest) GetPostSlice(key string) []string {
+	if nil == r.Request.PostForm {
+		return nil
+	}
+	return r.Request.PostForm[key]
+}
+
+func (r *HttpRequest) GetPostIntSlice(key string) []int64 {
 	if nil == r.Request.PostForm {
 		return nil
 	}
