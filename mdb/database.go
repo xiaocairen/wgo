@@ -785,8 +785,8 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 				org.Set(reflect.ValueOf(int(reflect.Indirect(reflect.ValueOf(value)).Int())))
 			case reflect.String:
-				if s, ok := value.(string); ok {
-					if i, e := strconv.Atoi(s); e == nil {
+				if s, ok := value.(*string); ok {
+					if i, e := strconv.Atoi(*s); e == nil {
 						org.Set(reflect.ValueOf(i))
 					}
 				}
@@ -835,8 +835,8 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 					org.Set(reflect.ValueOf(int8(i)))
 				}
 			case reflect.String:
-				if s, ok := value.(string); ok {
-					if i, e := strconv.Atoi(s); e == nil && i >= INT8_MIN && i <= INT8_MAX {
+				if s, ok := value.(*string); ok {
+					if i, e := strconv.Atoi(*s); e == nil && i >= INT8_MIN && i <= INT8_MAX {
 						org.Set(reflect.ValueOf(int8(i)))
 					}
 				}
@@ -889,8 +889,8 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 					org.Set(reflect.ValueOf(int16(i)))
 				}
 			case reflect.String:
-				if s, ok := value.(string); ok {
-					if i, e := strconv.Atoi(s); e == nil && i >= INT16_MIN && i <= INT16_MAX {
+				if s, ok := value.(*string); ok {
+					if i, e := strconv.Atoi(*s); e == nil && i >= INT16_MIN && i <= INT16_MAX {
 						org.Set(reflect.ValueOf(int16(i)))
 					}
 				}
@@ -942,8 +942,8 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 					org.Set(reflect.ValueOf(int32(i)))
 				}
 			case reflect.String:
-				if s, ok := value.(string); ok {
-					if i, e := strconv.Atoi(s); e == nil && i >= INT32_MIN && i <= INT32_MAX {
+				if s, ok := value.(*string); ok {
+					if i, e := strconv.Atoi(*s); e == nil && i >= INT32_MIN && i <= INT32_MAX {
 						org.Set(reflect.ValueOf(int32(i)))
 					}
 				}
@@ -987,8 +987,8 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 				org.Set(reflect.ValueOf(reflect.Indirect(reflect.ValueOf(value)).Int()))
 			case reflect.String:
-				if s, ok := value.(string); ok {
-					if i, e := strconv.Atoi(s); e == nil {
+				if s, ok := value.(*string); ok {
+					if i, e := strconv.Atoi(*s); e == nil {
 						org.Set(reflect.ValueOf(int64(i)))
 					}
 				}
@@ -1033,8 +1033,8 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 					org.Set(reflect.ValueOf(uint(i)))
 				}
 			case reflect.String:
-				if s, ok := value.(string); ok {
-					if i, e := strconv.Atoi(s); e == nil && i >= 0 {
+				if s, ok := value.(*string); ok {
+					if i, e := strconv.Atoi(*s); e == nil && i >= 0 {
 						org.Set(reflect.ValueOf(uint(i)))
 					}
 				}
@@ -1082,8 +1082,8 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 					org.Set(reflect.ValueOf(uint8(i)))
 				}
 			case reflect.String:
-				if s, ok := value.(string); ok {
-					if i, e := strconv.Atoi(s); e == nil && i >= 0 && i <= UINT8_MAX {
+				if s, ok := value.(*string); ok {
+					if i, e := strconv.Atoi(*s); e == nil && i >= 0 && i <= UINT8_MAX {
 						org.Set(reflect.ValueOf(uint8(i)))
 					}
 				}
@@ -1131,8 +1131,8 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 					org.Set(reflect.ValueOf(uint16(i)))
 				}
 			case reflect.String:
-				if s, ok := value.(string); ok {
-					if i, e := strconv.Atoi(s); e == nil && i >= 0 && i <= UINT16_MAX {
+				if s, ok := value.(*string); ok {
+					if i, e := strconv.Atoi(*s); e == nil && i >= 0 && i <= UINT16_MAX {
 						org.Set(reflect.ValueOf(uint16(i)))
 					}
 				}
@@ -1180,8 +1180,8 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 					org.Set(reflect.ValueOf(uint32(i)))
 				}
 			case reflect.String:
-				if s, ok := value.(string); ok {
-					if i, e := strconv.Atoi(s); e == nil && i >= 0 && i <= UINT32_MAX {
+				if s, ok := value.(*string); ok {
+					if i, e := strconv.Atoi(*s); e == nil && i >= 0 && i <= UINT32_MAX {
 						org.Set(reflect.ValueOf(uint32(i)))
 					}
 				}
@@ -1227,8 +1227,8 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 					org.Set(reflect.ValueOf(uint64(i)))
 				}
 			case reflect.String:
-				if s, ok := value.(string); ok {
-					if i, e := strconv.Atoi(s); e == nil {
+				if s, ok := value.(*string); ok {
+					if i, e := strconv.Atoi(*s); e == nil {
 						org.Set(reflect.ValueOf(uint64(i)))
 					}
 				}
@@ -1272,8 +1272,8 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 			case reflect.Float32, reflect.Float64:
 				org.Set(reflect.ValueOf(float32(reflect.Indirect(reflect.ValueOf(value)).Float())))
 			case reflect.String:
-				if s, ok := value.(string); ok {
-					if f, e := strconv.ParseFloat(s, 32); e == nil {
+				if s, ok := value.(*string); ok {
+					if f, e := strconv.ParseFloat(*s, 32); e == nil {
 						org.Set(reflect.ValueOf(f))
 					}
 				}
@@ -1314,6 +1314,7 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 			}
 
 		case reflect.Float64:
+			fmt.Println(valKind)
 			switch valKind {
 			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 				org.Set(reflect.ValueOf(float64(reflect.Indirect(reflect.ValueOf(value)).Uint())))
@@ -1322,8 +1323,8 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 			case reflect.Float32, reflect.Float64:
 				org.Set(reflect.ValueOf(reflect.Indirect(reflect.ValueOf(value)).Float()))
 			case reflect.String:
-				if s, ok := value.(string); ok {
-					if f, e := strconv.ParseFloat(s, 64); e == nil {
+				if s, ok := value.(*string); ok {
+					if f, e := strconv.ParseFloat(*s, 64); e == nil {
 						org.Set(reflect.ValueOf(f))
 					}
 				}
