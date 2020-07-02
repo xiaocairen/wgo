@@ -202,6 +202,35 @@ func (s *svc) Create() error {
 	return nil
 }
 
+func (s *svc) CreateOnDupkey(dupkey map[string]string) error {
+	if s.newErr != nil {
+		return s.newErr
+	}
+
+	var (
+		fv, rv, _ = s.getFieldValues()
+		res       sql.Result
+		err       error
+		insert    = msql.Insert{
+			Into:       s.table.tableName,
+			FieldValue: fv,
+			OnDKUpdate: dupkey,
+		}
+	)
+	if s.service.in {
+		res, err = s.service.tx.Insert(insert).Exec()
+	} else {
+		res, err = s.conn.Insert(insert).Exec()
+	}
+	if err != nil {
+		return err
+	}
+
+	id, _ := res.LastInsertId()
+	rv.FieldByName(s.table.primaryField.Name).Set(reflect.ValueOf(id))
+	return nil
+}
+
 func (s *svc) CreateMulti(data []map[string]interface{}) (num int64, err error) {
 	if s.newErr != nil {
 		err = s.newErr
