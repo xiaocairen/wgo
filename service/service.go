@@ -485,6 +485,31 @@ func (s *svc) DeleteByField(field string, value interface{}) (int64, error) {
 	return res.RowsAffected()
 }
 
+func (s *svc) DeleteByWhere(where *msql.WhereCondition) (int64, error) {
+	if s.newErr != nil {
+		return 0, s.newErr
+	}
+
+	var (
+		res sql.Result
+		err error
+		del = msql.Delete{
+			From:  s.table.tableName,
+			Where: where,
+		}
+	)
+	if s.service.in {
+		res, err = s.service.tx.Delete(del).Exec()
+	} else {
+		res, err = s.conn.Delete(del).Exec()
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	return res.RowsAffected()
+}
+
 func (s *svc) Has(where *msql.WhereCondition, groupBy []string) (bool, error) {
 	if s.newErr != nil {
 		return false, s.newErr
