@@ -539,9 +539,9 @@ func (s *svc) DeleteByWhere(where *msql.WhereCondition) (int64, error) {
 	return res.RowsAffected()
 }
 
-func (s *svc) Has(where *msql.WhereCondition, groupBy []string) (bool, error) {
+func (s *svc) Count(where *msql.WhereCondition, groupBy []string) (int64, error) {
 	if s.newErr != nil {
-		return false, s.newErr
+		return 0, s.newErr
 	}
 
 	var total int64
@@ -551,10 +551,19 @@ func (s *svc) Has(where *msql.WhereCondition, groupBy []string) (bool, error) {
 		Where:   where,
 		GroupBy: groupBy,
 	}).QueryRow().Scan(&total)
-	if err == sql.ErrNoRows {
-		return false, nil
-	}
 	if nil != err {
+		if err == sql.ErrNoRows {
+			return 0, nil
+		}
+		return 0, err
+	}
+
+	return total, nil
+}
+
+func (s *svc) Has(where *msql.WhereCondition, groupBy []string) (bool, error) {
+	total, err := s.Count(where, groupBy)
+	if err != nil {
 		return false, err
 	}
 
