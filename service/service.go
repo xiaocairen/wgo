@@ -736,7 +736,6 @@ func (s *svc) loadWith(with ...string) error {
 				OrderBy: orderBy,
 			}).Query().ScanStructAll(target.target)
 			if err != nil {
-				fmt.Println(err)
 				return err
 			}
 
@@ -851,7 +850,6 @@ func (s *svc) loadTargetWith(target interface{}, with ...string) error {
 				OrderBy: orderBy,
 			}).Query().ScanStructAll(target.target)
 			if err != nil {
-				fmt.Println(err)
 				return err
 			}
 

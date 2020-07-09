@@ -1314,7 +1314,6 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, 
 			}
 
 		case reflect.Float64:
-			fmt.Println(valKind)
 			switch valKind {
 			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 				org.Set(reflect.ValueOf(float64(reflect.Indirect(reflect.ValueOf(value)).Uint())))
