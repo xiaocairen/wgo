@@ -614,8 +614,13 @@ func (s *svc) LoadTarget(target interface{}, primaryVal interface{}, with ...str
 		return s.newErr
 	}
 
-	err := s.conn.Select(msql.Select{
-		Select: msql.Fields(s.table.tableFields...),
+	fields, err := s.getTargetMdbFields(target)
+	if err != nil {
+		return err
+	}
+
+	err = s.conn.Select(msql.Select{
+		Select: msql.Fields(fields...),
 		From:   msql.Table{Table: s.table.tableName},
 		Where:  msql.Where(s.table.primaryKey, "=", primaryVal),
 	}).QueryRow().ScanStruct(target)
@@ -631,8 +636,13 @@ func (s *svc) LoadOneTarget(target interface{}, where *msql.WhereCondition, orde
 		return s.newErr
 	}
 
-	err := s.conn.Select(msql.Select{
-		Select:  msql.Fields(s.table.tableFields...),
+	fields, err := s.getTargetMdbFields(target)
+	if err != nil {
+		return err
+	}
+	
+	err = s.conn.Select(msql.Select{
+		Select:  msql.Fields(fields...),
 		From:    msql.Table{Table: s.table.tableName},
 		Where:   where,
 		OrderBy: orderBy,
@@ -971,6 +981,28 @@ func (s *svc) getFieldValues() (fieldValues map[string]interface{}, targetValue 
 			if dbtag != "" {
 				fieldValues[dbtag] = fv.Interface()
 			}
+		}
+	}
+	return
+}
+
+func (s *svc) getTargetMdbFields(target interface{}) (fields []string, err error) {
+	t := reflect.TypeOf(target)
+	if t.Kind() != reflect.Ptr {
+		err = fmt.Errorf("target '%s' must be ptr to struct", t.String())
+		return
+	}
+	e := t.Elem()
+	if e.Kind() != reflect.Struct {
+		err = fmt.Errorf("target '%s' must be ptr to struct", t.String())
+		return
+	}
+
+	for i := 0; i < e.NumField(); i++ {
+		f := e.Field(i)
+		tag := f.Tag.Get("mdb")
+		if tag != "" {
+			fields = append(fields, tag)
 		}
 	}
 	return
