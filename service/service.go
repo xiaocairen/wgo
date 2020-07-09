@@ -59,12 +59,14 @@ func (s *Servicer) Registe(tc TableCollection) {
 }
 
 func (s *Servicer) New() *Service {
+	c, e := s.db.GetConn()
 	return &Service{
 		db:     s.db,
-		conn:   s.db.GetConn(),
+		conn:   c,
 		tx:     nil,
 		in:     false,
 		tables: s.tables,
+		err:    e,
 	}
 }
 
@@ -74,17 +76,37 @@ type Service struct {
 	tx     *mdb.Tx
 	in     bool
 	tables []*table
+	err    error
+}
+
+func (s *Service) NewService(config *mdb.DBConfig) *Service {
+	c, e := s.db.NewConn(config)
+	return &Service{
+		db:     s.db,
+		conn:   c,
+		tx:     nil,
+		in:     false,
+		tables: s.tables,
+		err:    e,
+	}
 }
 
 func (s *Service) Conn() *mdb.Conn {
+	if s.err != nil {
+		panic(s.err)
+	}
 	return s.conn
 }
 
 func (s *Service) SelectDbHost(hostname string) {
-	s.conn = s.db.GetConnByName(hostname)
+	s.conn, s.err = s.db.GetConnByName(hostname)
 }
 
 func (s *Service) Begin() {
+	if s.err != nil {
+		return
+	}
+
 	s.tx = s.conn.Begin()
 	s.in = true
 }
@@ -94,6 +116,9 @@ func (s *Service) InTransaction() bool {
 }
 
 func (s *Service) Commit() error {
+	if s.err != nil {
+		return s.err
+	}
 	if !s.in {
 		return nil
 	}
@@ -105,6 +130,9 @@ func (s *Service) Commit() error {
 }
 
 func (s *Service) Rollback() error {
+	if s.err != nil {
+		return s.err
+	}
 	if !s.in {
 		return nil
 	}
@@ -117,6 +145,10 @@ func (s *Service) Rollback() error {
 
 // target must be ptr to struct
 func (s *Service) New(target interface{}) *svc {
+	if s.err != nil {
+		return &svc{newErr: s.err}
+	}
+
 	dbt, typ, err := s.loadTableByTarget(target)
 	if err != nil {
 		return &svc{newErr: err}
@@ -133,33 +165,22 @@ func (s *Service) New(target interface{}) *svc {
 }
 
 func (s *Service) loadTableByTarget(target interface{}) (*table, reflect.Type, error) {
-	targetType := reflect.TypeOf(target)
-	structName := targetType.String()
-	if targetType.Kind() != reflect.Ptr {
-		return nil, nil, fmt.Errorf("target '%s' must be ptr to struct", structName)
-	}
-	targetTypeElem := targetType.Elem()
-	if targetTypeElem.Kind() != reflect.Struct {
-		return nil, nil, fmt.Errorf("target '%s' must be ptr to struct", structName)
-	}
+	var (
+		targetType = reflect.TypeOf(target)
+		structName = targetType.String()
+	)
 
-	var dbt *table
-	for _, t := range s.tables {
-		if t.structName == structName {
-			dbt = t
-			break
-		}
-	}
-	if dbt == nil {
+	dbtable := s.loadTableByName(structName)
+	if dbtable == nil {
 		return nil, nil, fmt.Errorf("not found target '%s' in table register", structName)
 	}
-	return dbt, targetTypeElem, nil
+	return dbtable, targetType.Elem(), nil
 }
 
 func (s *Service) loadTableByName(structName string) *table {
-	for _, dbt := range s.tables {
-		if dbt.structName == structName {
-			return dbt
+	for _, t := range s.tables {
+		if t.structName == structName {
+			return t
 		}
 	}
 	return nil
@@ -640,7 +661,7 @@ func (s *svc) LoadOneTarget(target interface{}, where *msql.WhereCondition, orde
 	if err != nil {
 		return err
 	}
-	
+
 	err = s.conn.Select(msql.Select{
 		Select:  msql.Fields(fields...),
 		From:    msql.Table{Table: s.table.tableName},

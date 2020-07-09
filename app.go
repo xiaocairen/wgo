@@ -2,11 +2,13 @@ package wgo
 
 import (
 	"fmt"
+	"encoding/json"
 	"github.com/xiaocairen/wgo/config"
 	"github.com/xiaocairen/wgo/mdb"
 	"github.com/xiaocairen/wgo/reuse"
 	"github.com/xiaocairen/wgo/service"
 	"github.com/xiaocairen/wgo/tool"
+	"github.com/xiaocairen/wgo/tool/httputil"
 	"html/template"
 	"log"
 	"net/http"
@@ -59,9 +61,7 @@ func init() {
 		}
 
 		var dbTestPing bool
-		if err := appInstance.configurator.GetBool("db_test_ping", &dbTestPing); err != nil {
-			log.Panic(err)
-		}
+		appInstance.configurator.GetBool("db_test_ping", &dbTestPing)
 
 		dbc, err := appInstance.configurator.Get("database")
 		if nil != err {
@@ -72,7 +72,7 @@ func init() {
 		}
 
 		var dbcs []*mdb.DBConfig
-		if err := parseDbConfig(dbc, &dbcs); err != nil {
+		if err := parseDBConfig(dbc, &dbcs); err != nil {
 			if dbTestPing {
 				log.Panic(err)
 			}
@@ -270,84 +270,95 @@ func initLogger() {
 	log.SetOutput(f)
 }
 
-func parseDbConfig(dbc interface{}, dbcs *[]*mdb.DBConfig) error {
+func parseDBConfig(dbc interface{}, dbcs *[]*mdb.DBConfig) error {
 	switch val := dbc.(type) {
 	case []interface{}:
 		for _, v := range val {
 			m, ok := v.(map[string]interface{})
 			if !ok {
-				return fmt.Errorf("db config must be []map[string]interface{}")
+				return fmt.Errorf("database config must be []map[string]interface{}")
 			}
 
-			var dbc mdb.DBConfig
-			tool.StructFill(&m, &dbc)
-			*dbcs = append(*dbcs, &dbc)
+			var c mdb.DBConfig
+			tool.StructFill(&m, &c)
+			*dbcs = append(*dbcs, &c)
 		}
 
 	case map[string]interface{}:
 		if _, f := val["driver"]; f {
-			var dbc mdb.DBConfig
-			tool.StructFill(&val, &dbc)
-			*dbcs = append(*dbcs, &dbc)
+			var c mdb.DBConfig
+			tool.StructFill(&val, &c)
+			*dbcs = append(*dbcs, &c)
 			return nil
 		}
 
-		write, wb := val["write"]
-		read, rb := val["read"]
-		if !wb || !rb {
-			return fmt.Errorf("read and write db must be both exist")
-		}
+		if read, f := val["read"]; f {
+			switch rval := read.(type) {
+			case []interface{}:
+				for _, v := range rval {
+					m, ok := v.(map[string]interface{})
+					if !ok {
+						return fmt.Errorf("read database config must be []map[string]interface{}")
+					}
 
-		switch wval := write.(type) {
-		case []interface{}:
-			for _, v := range wval {
-				m, ok := v.(map[string]interface{})
-				if !ok {
-					return fmt.Errorf("db config must be map[string]interface{}")
+					var c mdb.DBConfig
+					tool.StructFill(&m, &c)
+					c.ReadOrWrite = mdb.ONLY_READ
+					*dbcs = append(*dbcs, &c)
 				}
 
-				var dbc mdb.DBConfig
-				tool.StructFill(&m, &dbc)
-				dbc.ReadOrWrite = mdb.ONLY_WRITE
-				*dbcs = append(*dbcs, &dbc)
+			case map[string]interface{}:
+				var c mdb.DBConfig
+				tool.StructFill(&rval, &c)
+				c.ReadOrWrite = mdb.ONLY_READ
+				*dbcs = append(*dbcs, &c)
+
+			default:
+				return fmt.Errorf("read database config is invalid")
 			}
-
-		case map[string]interface{}:
-			var dbc mdb.DBConfig
-			tool.StructFill(&wval, &dbc)
-			dbc.ReadOrWrite = mdb.ONLY_WRITE
-			*dbcs = append(*dbcs, &dbc)
-
-		default:
-			fmt.Errorf("db config must be map or slice")
 		}
+		if write, f := val["write"]; f {
+			switch wval := write.(type) {
+			case []interface{}:
+				for _, v := range wval {
+					m, ok := v.(map[string]interface{})
+					if !ok {
+						return fmt.Errorf("write database config must be []map[string]interface{}")
+					}
 
-		switch rval := read.(type) {
-		case []interface{}:
-			for _, v := range rval {
-				m, ok := v.(map[string]interface{})
-				if !ok {
-					return fmt.Errorf("db config must be map[string]interface{}")
+					var c mdb.DBConfig
+					tool.StructFill(&m, &c)
+					c.ReadOrWrite = mdb.ONLY_WRITE
+					*dbcs = append(*dbcs, &c)
 				}
 
-				var dbc mdb.DBConfig
-				tool.StructFill(&m, &dbc)
-				dbc.ReadOrWrite = mdb.ONLY_READ
-				*dbcs = append(*dbcs, &dbc)
+			case map[string]interface{}:
+				var c mdb.DBConfig
+				tool.StructFill(&wval, &c)
+				c.ReadOrWrite = mdb.ONLY_WRITE
+				*dbcs = append(*dbcs, &c)
+
+			default:
+				fmt.Errorf("write database config is invalid")
+			}
+		}
+
+	case string:
+		if val[:5] == "https" {
+			res, err := httputil.NewRequest().Get(val)
+			if err != nil {
+				return err
 			}
 
-		case map[string]interface{}:
-			var dbc mdb.DBConfig
-			tool.StructFill(&rval, &dbc)
-			dbc.ReadOrWrite = mdb.ONLY_READ
-			*dbcs = append(*dbcs, &dbc)
-
-		default:
-			return fmt.Errorf("db config must be map or slice")
+			var data interface{}
+			if e := json.Unmarshal(res.Body, &data); e != nil {
+				return e
+			}
+			parseDBConfig(data, dbcs)
 		}
 
 	default:
-		fmt.Errorf("db config must be map or slice")
+		fmt.Errorf("database config is invalid")
 	}
 	return nil
 }

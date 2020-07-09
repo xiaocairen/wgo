@@ -237,7 +237,6 @@ func fillStruct(outType reflect.Type, outValue reflect.Value, name string, value
 				org.Set(reflect.ValueOf(int(f)))
 			case reflect.String:
 				s, _ := value.(string)
-				// strconv.ParseInt(s, 10, 64)
 				if i, e := strconv.Atoi(s); e != nil {
 					return fmt.Errorf("string value '%s' of %s can't assignableTo int '%s'", s, name, field.Name)
 				} else {

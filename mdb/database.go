@@ -45,22 +45,23 @@ type dbres struct {
 }
 
 type DB struct {
-	alone bool
-	dres  *dbres
-	rwres []*dbres
-	rres  []*dbres
-	wres  []*dbres
-	rwlen int
-	rlen  int
-	wlen  int
+	empty   bool
+	alone   bool
+	dres    *dbres
+	rwres   []*dbres
+	rres    []*dbres
+	wres    []*dbres
+	rwlen   int
+	rlen    int
+	wlen    int
+	dynamic sync.Map
 }
 
 func NewDB(dbcs []*DBConfig, testPing bool) (*DB, error) {
 	var err error
 	onceNewDB.Do(func() {
 		if nil == dbcs || 0 == len(dbcs) {
-			dbInstance = &DB{alone: true}
-			err = fmt.Errorf("first param of NewDB() is nil or is empty")
+			dbInstance = &DB{empty: true}
 			return
 		}
 
@@ -74,7 +75,7 @@ func NewDB(dbcs []*DBConfig, testPing bool) (*DB, error) {
 		if 1 == len(dbcs) {
 			db, dsn, e := openDB(dbcs[0], testPing)
 			if e != nil {
-				dbInstance = &DB{alone: true}
+				dbInstance = &DB{empty: true}
 				err = e
 				return
 			}
@@ -98,7 +99,7 @@ func NewDB(dbcs []*DBConfig, testPing bool) (*DB, error) {
 			for _, dbc := range dbcs {
 				db, dsn, e := openDB(dbc, testPing)
 				if e != nil {
-					dbInstance = &DB{alone: true}
+					dbInstance = &DB{empty: true}
 					err = e
 					return
 				}
@@ -122,7 +123,7 @@ func NewDB(dbcs []*DBConfig, testPing bool) (*DB, error) {
 						dsn:    dsn,
 					})
 				default:
-					dbInstance = &DB{alone: true}
+					dbInstance = &DB{empty: true}
 					err = fmt.Errorf("database tag read_or_write must be 0, 1, 2; 0:rw, 1:r, 2:w")
 					return
 				}
@@ -193,7 +194,7 @@ func (db *DB) selectRes(rw int, dbname string) *dbres {
 		return db.dres
 	}
 
-	if 0 == len(dbname) {
+	if "" == dbname {
 		ts := int(time.Now().UnixNano() / 1000)
 		if db.rwlen > 0 {
 			return db.rwres[ts%db.rwlen]
@@ -236,31 +237,68 @@ func (db *DB) selectRes(rw int, dbname string) *dbres {
 	return db.dres
 }
 
-func (db *DB) GetConn() *Conn {
+func (db *DB) GetConn() (*Conn, error) {
+	if db.empty {
+		return nil, fmt.Errorf("no database connection resource")
+	}
+
 	if db.alone {
 		return &Conn{
 			rdb: db.dres,
 			wdb: db.dres,
-		}
+			one: true,
+		}, nil
 	} else {
 		return &Conn{
 			rdb: db.selectRes(ONLY_READ, ""),
 			wdb: db.selectRes(ONLY_WRITE, ""),
-		}
+		}, nil
 	}
 }
 
-func (db *DB) GetConnByName(hostDBName string) *Conn {
+func (db *DB) GetConnByName(hostDBName string) (*Conn, error) {
+	if db.empty {
+		return nil, fmt.Errorf("no database connection resource")
+	}
+
 	if db.alone {
 		return &Conn{
 			rdb: db.dres,
 			wdb: db.dres,
-		}
+			one: true,
+		}, nil
 	} else {
 		return &Conn{
 			rdb: db.selectRes(ONLY_READ, hostDBName),
 			wdb: db.selectRes(ONLY_WRITE, hostDBName),
+		}, nil
+	}
+}
+
+func (db *DB) NewConn(dbc *DBConfig) (*Conn, error) {
+	if c, b := db.dynamic.Load(dbc.HostDBName); b {
+		conn, _ := c.(*Conn)
+		return conn, nil
+	} else {
+		sqlDB, dsn, err := openDB(dbc, true)
+		if err != nil {
+			return nil, err
 		}
+
+		var (
+			r = &dbres{
+				db:     sqlDB,
+				dbname: dbc.HostDBName,
+				dsn:    dsn,
+			}
+			c = &Conn{
+				rdb: r,
+				wdb: r,
+				one: true,
+			}
+		)
+		db.dynamic.Store(dbc.HostDBName, c)
+		return c, nil
 	}
 }
 
@@ -304,6 +342,7 @@ func (m modifyQuery) Exec() (sql.Result, error) {
 type Conn struct {
 	rdb *dbres
 	wdb *dbres
+	one bool
 }
 
 func (dc *Conn) Begin() *Tx {
@@ -371,6 +410,14 @@ func (dc *Conn) Query(query string, args ...interface{}) *Rows {
 func (dc *Conn) QueryRow(query string, args ...interface{}) *Row {
 	rows, err := dc.rdb.db.Query(query, args...)
 	return &Row{rows: &Rows{rows: rows, lerr: err}}
+}
+
+func (dc *Conn) GetDSN() string {
+	if dc.one {
+		return dc.wdb.dsn
+	} else {
+		return fmt.Sprintf("write=%s, read=%s", dc.wdb.dsn, dc.rdb.dsn)
+	}
 }
 
 type dbStmt struct {

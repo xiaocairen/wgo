@@ -56,7 +56,7 @@ func (r *Request) Post(url string, body map[string]string) (*Response, error) {
 
 func (r *Request) handleRequest() (*Response, error) {
 	tr := &http.Transport{DisableCompression: true}
-	if strings.Contains(r.url, "https") {
+	if r.url[:5] == "https" {
 		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 	defer tr.CloseIdleConnections()
