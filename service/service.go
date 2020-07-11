@@ -103,7 +103,7 @@ func (s *Service) SelectDbHost(hostname string) {
 }
 
 func (s *Service) Begin() {
-	if s.err != nil {
+	if s.err != nil || s.in {
 		return
 	}
 
