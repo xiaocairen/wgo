@@ -911,7 +911,7 @@ func (s *svc) LoadAll(where *msql.WhereCondition, orderBy []string) ([]interface
 // param where use func msql.Where, msql.And, msql.Or, msql.In, msql.NotIn,
 // msql.Between, msql.NotBetween to generate.
 // or use nil mean no WhereCondition
-func (s *svc) LoadBy(where *msql.WhereCondition, orderBy []string, limit, offset uint64) ([]interface{}, error) {
+func (s *svc) LoadList(where *msql.WhereCondition, orderBy []string, limit, offset uint64) ([]interface{}, error) {
 	if s.newErr != nil {
 		return nil, s.newErr
 	}
