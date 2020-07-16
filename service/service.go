@@ -143,8 +143,8 @@ func (s *Service) Rollback() error {
 	return err
 }
 
-// method has msql.Select param, the target can be nil,
-// otherwise target must be ptr to struct.
+// only LoadPaginator has param selection and call LoadPageTarget,
+// the target can be nil; otherwise target must be ptr to struct.
 func (s *Service) New(target interface{}) *svc {
 	if s.err != nil {
 		return &svc{newErr: s.err}
