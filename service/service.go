@@ -143,15 +143,23 @@ func (s *Service) Rollback() error {
 	return err
 }
 
-// target must be ptr to struct
+// method has msql.Select param, the target can be nil,
+// otherwise target must be ptr to struct.
 func (s *Service) New(target interface{}) *svc {
 	if s.err != nil {
 		return &svc{newErr: s.err}
 	}
 
-	dbt, typ, err := s.loadTableByTarget(target)
-	if err != nil {
-		return &svc{newErr: err}
+	var (
+		dbt *table
+		typ reflect.Type
+		err error
+	)
+	if nil != target {
+		dbt, typ, err = s.loadTableByTarget(target)
+		if err != nil {
+			return &svc{newErr: err}
+		}
 	}
 
 	return &svc{
