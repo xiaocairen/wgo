@@ -51,7 +51,7 @@ func MD5(s string) string {
 	}
 
 	h := md5.New()
-	if _, err := h.Write(String2Bytes(s)); err != nil {
+	if _, err := h.Write([]byte(s)); err != nil {
 		return s
 	}
 
