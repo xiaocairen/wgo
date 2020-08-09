@@ -24,14 +24,23 @@ type Response struct {
 }
 
 func NewRequest() *Request {
-	return &Request{}
+	return &Request{headers:make(map[string]string)}
 }
 
 func (r *Request) AddHeader(key string, value string) {
-	if r.headers == nil {
-		r.headers = make(map[string]string)
+	if _, f := r.headers[key]; !f {
+		r.headers[key] = value
 	}
+}
+
+func (r *Request) SetHeader(key string, value string) {
 	r.headers[key] = value
+}
+
+func (r *Request) SetHeaders(h map[string]string) {
+	for k, v := range h {
+		r.headers[k] = v
+	}
 }
 
 func (r *Request) SetTimeout(t int) {
