@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"encoding/json"
 )
 
 type Request struct {
@@ -54,7 +55,21 @@ func (r *Request) Get(url string) (*Response, error) {
 	return r.handleRequest()
 }
 
-func (r *Request) Post(url string, body map[string]string) (*Response, error) {
+func (r *Request) PostJSON(url string, data map[string]interface{}) (*Response, error) {
+	r.url = url
+	r.method = "POST"
+	byt, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	
+	r.body = string(byt)
+	r.SetHeader("Content-Type", "application/json")
+	
+	return r.handleRequest()
+}
+
+func (r *Request) PostForm(url string, body map[string]string) (*Response, error) {
 	r.url = url
 	r.body = buildBody(body)
 	r.method = "POST"
