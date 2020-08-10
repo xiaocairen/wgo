@@ -160,18 +160,19 @@ func (u Update) Build() SqlStatement {
 		limit   string
 	)
 
-	if nil != u.Where && nil != u.Where.err {
-		return SqlStatement{Err: u.Where.err}
+	if nil != u.Where {
+		if nil != u.Where.err {
+			return SqlStatement{Err: u.Where.err}
+		}
+		if len(u.Where.param) > 0 {
+			where = " WHERE " + u.Where.where
+			params = append(params, u.Where.param...)
+		}
 	}
 
 	for k, v := range u.SetValues {
 		set = append(set, k+"=?")
 		params = append(params, v)
-	}
-
-	if nil != u.Where && len(u.Where.param) > 0 {
-		where = " WHERE " + u.Where.where
-		params = append(params, u.Where.param...)
 	}
 
 	if len(u.OrderBy) > 0 {
@@ -205,8 +206,14 @@ func (d Delete) Build() SqlStatement {
 		orderBy string
 		limit   string
 	)
-	if nil != d.Where && nil != d.Where.err {
-		return SqlStatement{Err: d.Where.err}
+	if nil != d.Where {
+		if nil != d.Where.err {
+			return SqlStatement{Err: d.Where.err}
+		}
+		if len(d.Where.param) > 0 {
+			where = " WHERE " + d.Where.where
+			params = d.Where.param
+		}
 	}
 
 	t := d.Using.String()
@@ -214,10 +221,6 @@ func (d Delete) Build() SqlStatement {
 		using = " USING " + t
 	}
 
-	if nil != d.Where && len(d.Where.param) > 0 {
-		where = " WHERE " + d.Where.where
-		params = d.Where.param
-	}
 	if len(d.OrderBy) > 0 {
 		orderBy = " ORDER BY " + strings.Join(d.OrderBy, ",")
 	}
@@ -324,7 +327,7 @@ func And(and ...interface{}) *WhereCondition {
 		n     = len(and)
 	)
 	if 0 == n {
-		return &WhereCondition{err: fmt.Errorf("param of 'and' sql is empty")}
+		return nil
 	}
 
 	for i := 0; i < n; {
@@ -340,6 +343,8 @@ func And(and ...interface{}) *WhereCondition {
 				err = fmt.Errorf("'and' sql operator must be string, '%t'", and[i+1])
 			}
 			i += 3
+		} else if and[i] == nil {
+			continue
 		} else {
 			err = fmt.Errorf("'and' sql field must be string or struct WhereCondition{}, '%t'", and[i])
 		}
@@ -361,7 +366,7 @@ func Or(or ...interface{}) *WhereCondition {
 		n     = len(or)
 	)
 	if 0 == n {
-		return &WhereCondition{err: fmt.Errorf("param of 'or' sql is empty")}
+		return nil
 	}
 
 	for i := 0; i < n; {
@@ -378,6 +383,8 @@ func Or(or ...interface{}) *WhereCondition {
 				break
 			}
 			i += 3
+		} else if or[i] == nil {
+			continue
 		} else {
 			err = fmt.Errorf("'or' sql field must be string or struct WhereCondition{}, '%t'", or[i])
 			break
