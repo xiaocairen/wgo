@@ -160,19 +160,18 @@ func (u Update) Build() SqlStatement {
 		limit   string
 	)
 
-	if nil != u.Where {
-		if nil != u.Where.err {
-			return SqlStatement{Err: u.Where.err}
-		}
-		if len(u.Where.param) > 0 {
-			where = " WHERE " + u.Where.where
-			params = append(params, u.Where.param...)
-		}
+	if nil != u.Where && nil != u.Where.err {
+		return SqlStatement{Err: u.Where.err}
 	}
 
 	for k, v := range u.SetValues {
 		set = append(set, k+"=?")
 		params = append(params, v)
+	}
+
+	if nil != u.Where && len(u.Where.param) > 0 {
+		where = " WHERE " + u.Where.where
+		params = append(params, u.Where.param...)
 	}
 
 	if len(u.OrderBy) > 0 {
@@ -206,14 +205,8 @@ func (d Delete) Build() SqlStatement {
 		orderBy string
 		limit   string
 	)
-	if nil != d.Where {
-		if nil != d.Where.err {
-			return SqlStatement{Err: d.Where.err}
-		}
-		if len(d.Where.param) > 0 {
-			where = " WHERE " + d.Where.where
-			params = d.Where.param
-		}
+	if nil != d.Where && nil != d.Where.err {
+		return SqlStatement{Err: d.Where.err}
 	}
 
 	t := d.Using.String()
@@ -221,6 +214,10 @@ func (d Delete) Build() SqlStatement {
 		using = " USING " + t
 	}
 
+	if nil != d.Where && len(d.Where.param) > 0 {
+		where = " WHERE " + d.Where.where
+		params = d.Where.param
+	}
 	if len(d.OrderBy) > 0 {
 		orderBy = " ORDER BY " + strings.Join(d.OrderBy, ",")
 	}
