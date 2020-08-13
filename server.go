@@ -21,6 +21,7 @@ type server struct {
 }
 
 func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
 	if nil == this.app.finally {
 		defer this.finally(w, r)
 	} else {
@@ -73,7 +74,6 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			this.render(w, cv, router, params)
 		}
 	}
-
 }
 
 func (this *server) callInterceptor(inp reflect.Value, params []reflect.Value) (bool, []byte) {
