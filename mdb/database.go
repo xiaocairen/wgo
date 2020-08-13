@@ -664,7 +664,7 @@ func (r *Rows) ScanStructAll(in interface{}) ([]interface{}, error) {
 		}
 	}
 
-	var out []interface{}
+	var out = make([]interface{}, 0)
 	for r.rows.Next() {
 		tmp := reflect.New(ote).Interface()
 		ote := reflect.TypeOf(tmp).Elem()
