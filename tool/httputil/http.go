@@ -2,12 +2,11 @@ package httputil
 
 import (
 	"crypto/tls"
-	"fmt"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
 	"time"
-	"encoding/json"
 )
 
 type Request struct {
@@ -25,7 +24,10 @@ type Response struct {
 }
 
 func NewRequest() *Request {
-	return &Request{headers:make(map[string]string)}
+	return &Request{
+		headers: make(map[string]string),
+		timeout: 45,
+	}
 }
 
 func (r *Request) AddHeader(key string, value string) {
@@ -55,25 +57,34 @@ func (r *Request) Get(url string) (*Response, error) {
 	return r.handleRequest()
 }
 
-func (r *Request) PostJSON(url string, data map[string]interface{}) (*Response, error) {
-	r.url = url
+func (r *Request) Post(url, body string) (*Response, error) {
 	r.method = "POST"
+	r.url = url
+	r.body = body
+	r.SetHeader("Content-Type", "application/x-www-form-urlencoded")
+
+	return r.handleRequest()
+}
+
+func (r *Request) PostJSON(url string, data map[string]interface{}) (*Response, error) {
+	r.method = "POST"
+	r.url = url
 	byt, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	r.body = string(byt)
 	r.SetHeader("Content-Type", "application/json")
-	
+
 	return r.handleRequest()
 }
 
 func (r *Request) PostForm(url string, body map[string]string) (*Response, error) {
+	r.method = "POST"
 	r.url = url
 	r.body = buildBody(body)
-	r.method = "POST"
-	r.AddHeader("Content-Type", "application/x-www-form-urlencoded")
+	r.SetHeader("Content-Type", "application/x-www-form-urlencoded")
 
 	return r.handleRequest()
 }
@@ -93,7 +104,7 @@ func (r *Request) handleRequest() (*Response, error) {
 
 	req, err := http.NewRequest(r.method, r.url, strings.NewReader(r.body))
 	if err != nil {
-		return nil, fmt.Errorf("new GET request err, %s", err.Error())
+		return nil, err
 	}
 	defer req.Body.Close()
 
@@ -105,7 +116,7 @@ func (r *Request) handleRequest() (*Response, error) {
 
 	res, err := c.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("send HTTP request err, %s", err.Error())
+		return nil, err
 	}
 
 	return r.handleResponse(res)
@@ -114,23 +125,25 @@ func (r *Request) handleRequest() (*Response, error) {
 func (r *Request) handleResponse(res *http.Response) (*Response, error) {
 	defer res.Body.Close()
 
-	hr := &Response{HttpCode: res.StatusCode, Headers: res.Header}
-	buf := make([]byte, 1024)
+	var (
+		response = &Response{HttpCode: res.StatusCode, Headers: res.Header}
+		buf      = make([]byte, 1024)
+	)
 	for {
 		n, e := res.Body.Read(buf)
 		if n > 0 {
-			hr.Body = append(hr.Body, buf[:n]...)
+			response.Body = append(response.Body, buf[:n]...)
 		}
 
 		if e == io.EOF {
 			break
 		}
 		if e != nil {
-			return nil, fmt.Errorf("read response body failure, %s", e.Error())
+			return nil, e
 		}
 	}
 
-	return hr, nil
+	return response, nil
 }
 
 func (r *Response) GetHttpCode() int {
@@ -154,8 +167,10 @@ func (r *Response) GetBody() string {
 }
 
 func buildBody(body map[string]string) string {
-	tmp := make([]string, len(body))
-	i := 0
+	var (
+		tmp = make([]string, len(body))
+		i   = 0
+	)
 	for k, v := range body {
 		tmp[i] = k + "=" + v
 		i++
