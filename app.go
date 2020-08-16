@@ -180,14 +180,14 @@ func (this *app) getStaticFileDirs() []string {
 
 func (this *app) startTaskers() {
 	for _, tasker := range this.taskers {
-		go func() {
+		go func(t Tasker) {
 			defer func() {
 				if e := recover(); e != nil {
 					log.Printf("%s", e)
 				}
 			}()
-			tasker(this.configurator, this.servicer.New())
-		}()
+			t(this.configurator, this.servicer.New())
+		}(tasker)
 	}
 }
 
