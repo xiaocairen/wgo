@@ -36,7 +36,7 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	svc := this.app.servicer.New()
 	req := &HttpRequest{Request: r}
-	res := &HttpResponse{writer: w}
+	res := &HttpResponse{Writer: w}
 	req.init()
 
 	controller := tool.StructCopy(router.Controller)

@@ -213,23 +213,23 @@ func (r *HttpRequest) IsAjax() bool {
 // use HttpResponse.Append([]byte("hello world")).send()
 // or HttpResponse.send([]byte("hello world"))
 type HttpResponse struct {
-	writer http.ResponseWriter
+	Writer http.ResponseWriter
 	Body   [][]byte
 }
 
 func (r *HttpResponse) SetCookie(name, value, path string, maxAge int, secure, httpOnly bool) {
 	c := http.Cookie{Name: name, Value: value, Path: path, MaxAge: maxAge, Secure: secure, HttpOnly: httpOnly}
-	r.writer.Header().Set("Set-Cookie", c.String())
+	r.Writer.Header().Set("Set-Cookie", c.String())
 }
 
 func (r *HttpResponse) AddCookie(name, value, path string, maxAge int, secure, httpOnly bool) {
 	c := http.Cookie{Name: name, Value: value, Path: path, MaxAge: maxAge, Secure: secure, HttpOnly: httpOnly}
-	r.writer.Header().Add("Set-Cookie", c.String())
+	r.Writer.Header().Add("Set-Cookie", c.String())
 }
 
 func (r *HttpResponse) DelCookie(name string, path string) {
 	c := http.Cookie{Name: name, Value: "", Path: path, MaxAge: -1}
-	r.writer.Header().Set("Set-Cookie", c.String())
+	r.Writer.Header().Set("Set-Cookie", c.String())
 }
 
 func (r *HttpResponse) Append(body []byte) *HttpResponse {
@@ -272,9 +272,9 @@ func (r HttpResponse) SendJson(body interface{}) []byte {
 }
 
 func (r *HttpResponse) Addheader(key string, value string) {
-	r.writer.Header().Add(key, value)
+	r.Writer.Header().Add(key, value)
 }
 
 func (r *HttpResponse) SetHeader(key string, value string) {
-	r.writer.Header().Set(key, value)
+	r.Writer.Header().Set(key, value)
 }
