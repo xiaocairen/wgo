@@ -1,8 +1,8 @@
 package wgo
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
 	"github.com/xiaocairen/wgo/config"
 	"github.com/xiaocairen/wgo/mdb"
 	"github.com/xiaocairen/wgo/reuse"
@@ -25,6 +25,7 @@ var (
 	onceAppRun  sync.Once
 )
 
+type WebsocketHandler func(w http.ResponseWriter, r *http.Request, c *config.Configurator, s *service.Service)
 type Tasker func(c *config.Configurator, s *service.Service)
 type Finally func(w http.ResponseWriter, r *http.Request)
 
@@ -40,6 +41,7 @@ type app struct {
 	template                     *template.Template
 	templatePath                 string
 	templateFuncs                template.FuncMap
+	websocketHandlers            map[string]WebsocketHandler
 	taskers                      []Tasker
 	finally                      Finally
 }
@@ -54,7 +56,10 @@ func init() {
 			log.Panic("unable to change working dir " + err.Error())
 		}
 
-		appInstance = &app{configurator: config.New("app.json")}
+		appInstance = &app{
+			configurator:      config.New("app.json"),
+			websocketHandlers: make(map[string]WebsocketHandler),
+		}
 
 		if err := appInstance.configurator.GetBool("debug", &appInstance.debug); err != nil {
 			log.Panic(err)
@@ -106,14 +111,23 @@ func (this *app) Run() {
 		this.servicer.Registe(this.tableCollection)
 		this.startTaskers()
 
-		mux := http.NewServeMux()
-
-		dirs := this.getStaticFileDirs()
+		var (
+			host, port, pr, enableWebsocket = this.getHostAndPort()
+			mux                             = http.NewServeMux()
+			dirs                            = this.getStaticFileDirs()
+		)
 		if len(dirs) > 0 {
 			for _, dir := range dirs {
 				mux.Handle("/"+dir+"/", http.FileServer(http.Dir("web")))
 			}
 			mux.Handle("/favicon.ico", http.FileServer(http.Dir("web")))
+		}
+		if enableWebsocket && len(this.websocketHandlers) > 0 {
+			for url, handler := range this.websocketHandlers {
+				mux.HandleFunc(url, func(w http.ResponseWriter, r *http.Request) {
+					handler(w, r, this.configurator, this.servicer.New())
+				})
+			}
 		}
 
 		mux.Handle("/", s)
@@ -128,9 +142,8 @@ func (this *app) Run() {
 			MaxHeaderBytes:    1 << 20,
 		}
 
-		host, port, pr := this.getHostAndPort()
 		if pr {
-			l, e := reuse.Listen("tcp", host + ":" + strconv.Itoa(port))
+			l, e := reuse.Listen("tcp", host+":"+strconv.Itoa(port))
 			if e != nil {
 				log.Fatal(e)
 			}
@@ -146,11 +159,12 @@ func (this *app) Run() {
 	})
 }
 
-func (this *app) getHostAndPort() (host string, port int, reuse bool) {
+func (this *app) getHostAndPort() (host string, port int, pr bool, enableWebSocket bool) {
 	h := struct {
-		Addr      string `json:"addr"`
-		Port      int    `json:"port"`
-		PortReuse bool   `json:"port_reuse"`
+		Addr         string `json:"addr"`
+		Port         int    `json:"port"`
+		PortReuse    bool   `json:"port_reuse"`
+		UseWebsocket bool   `json:"use_websocket"`
 	}{}
 	if err := this.configurator.GetStruct("http", &h); err != nil {
 		panic(err)
@@ -158,7 +172,8 @@ func (this *app) getHostAndPort() (host string, port int, reuse bool) {
 
 	host = h.Addr
 	port = h.Port
-	reuse = h.PortReuse
+	pr = h.PortReuse
+	enableWebSocket = h.UseWebsocket
 	return
 }
 
@@ -225,6 +240,11 @@ func (this *app) SetHtmlFuncs(fnmap template.FuncMap) *app {
 	if nil == this.templateFuncs {
 		this.templateFuncs = fnmap
 	}
+	return this
+}
+
+func (this *app) AddWebsocketHandler(url string, handler WebsocketHandler) *app {
+	this.websocketHandlers[url] = handler
 	return this
 }
 
