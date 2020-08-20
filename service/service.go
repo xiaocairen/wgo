@@ -581,9 +581,6 @@ func (s *svc) Count(where *msql.WhereCondition, groupBy []string) (int64, error)
 		GroupBy: groupBy,
 	}).QueryRow().Scan(&total)
 	if nil != err {
-		if err == sql.ErrNoRows {
-			return 0, nil
-		}
 		return 0, err
 	}
 
