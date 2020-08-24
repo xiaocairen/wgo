@@ -57,7 +57,7 @@ func (this *WgoController) RenderHtml(filename string, data interface{}) (string
 }
 
 func (this *WgoController) RenderHtmlStr(htmlStr string, data interface{}) (*template.Template, interface{}) {
-	name := tool.MD5(htmlStr)
+	name := tool.MD5([]byte(htmlStr))
 	t := this.Template.Lookup(name)
 	if nil == t {
 		tpl, err := this.Template.New(name).Parse(htmlStr)
