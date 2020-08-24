@@ -45,16 +45,9 @@ func String2Bytes(s string) []byte {
 	return *(*[]byte)(unsafe.Pointer(&bh))
 }
 
-func MD5(s string) string {
-	if len(s) == 0 {
-		return s
-	}
-
+func MD5(p []byte) string {
 	h := md5.New()
-	if _, err := h.Write([]byte(s)); err != nil {
-		return s
-	}
-
+	h.Write(p)
 	return hex.EncodeToString(h.Sum(nil))
 }
 
