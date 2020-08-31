@@ -6,6 +6,7 @@ import (
 	"github.com/xiaocairen/wgo/tool"
 	"html/template"
 	"log"
+	"net/http"
 )
 
 type WgoController struct {
@@ -101,6 +102,16 @@ func (this *WgoController) FailureExtra(code int, msg string, extra interface{})
 		Extra interface{} `json:"extra,omitempty"`
 	}{Code: code, Msg: msg, Extra: extra})
 	return
+}
+
+func (this *WgoController) Redirect(url string, code int) []byte {
+	switch code {
+	case 201,301,302,303,307,308:
+	default:
+		code = 301
+	}
+	http.Redirect(this.Response.Writer, this.Request.Request, url, code)
+	return this.Render([]byte(""))
 }
 
 func mergeShareDatas(dst interface{}, datas []map[string]interface{}) interface{} {
