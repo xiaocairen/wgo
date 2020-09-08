@@ -396,6 +396,13 @@ func Or(or ...interface{}) *WhereCondition {
 
 func In(field string, values []interface{}) *WhereCondition {
 	n := len(values)
+	if n == 1 {
+		return &WhereCondition{
+			where: field + " = ?",
+			param: values,
+		}
+	}
+
 	placeholder := make([]string, n)
 	for i := 0; i < n; i++ {
 		placeholder[i] = "?"
@@ -408,6 +415,13 @@ func In(field string, values []interface{}) *WhereCondition {
 
 func NotIn(field string, values []interface{}) *WhereCondition {
 	n := len(values)
+	if n == 1 {
+		return &WhereCondition{
+			where: field + " <> ?",
+			param: values,
+		}
+	}
+
 	placeholder := make([]string, n)
 	for i := 0; i < n; i++ {
 		placeholder[i] = "?"
