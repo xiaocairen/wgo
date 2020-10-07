@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/xiaocairen/wgo/config"
 	"github.com/xiaocairen/wgo/mdb"
-	"github.com/xiaocairen/wgo/reuse"
 	"github.com/xiaocairen/wgo/service"
 	"github.com/xiaocairen/wgo/tool"
 	"github.com/xiaocairen/wgo/tool/httputil"
@@ -112,9 +111,9 @@ func (this *app) Run() {
 		this.startTaskers()
 
 		var (
-			host, port, pr, enableWebsocket = this.getHostAndPort()
-			mux                             = http.NewServeMux()
-			dirs                            = this.getStaticFileDirs()
+			host, port, enableWebsocket = this.getHostAndPort()
+			mux                         = http.NewServeMux()
+			dirs                        = this.getStaticFileDirs()
 		)
 		if len(dirs) > 0 {
 			for _, dir := range dirs {
@@ -132,7 +131,8 @@ func (this *app) Run() {
 
 		mux.Handle("/", s)
 
-		server := &http.Server{
+		var server = &http.Server{
+			Addr:              host + ":" + strconv.Itoa(port),
 			Handler:           mux,
 			TLSConfig:         nil,
 			ReadTimeout:       30 * time.Second,
@@ -141,29 +141,16 @@ func (this *app) Run() {
 			IdleTimeout:       0,
 			MaxHeaderBytes:    1 << 20,
 		}
-
-		if pr {
-			l, e := reuse.Listen("tcp", host+":"+strconv.Itoa(port))
-			if e != nil {
-				log.Fatal(e)
-			}
-			if e := server.Serve(l); e != nil {
-				log.Fatal(e)
-			}
-		} else {
-			server.Addr = host + ":" + strconv.Itoa(port)
-			if e := server.ListenAndServe(); e != nil {
-				log.Fatal(e)
-			}
+		if e := server.ListenAndServe(); e != nil {
+			log.Fatal(e)
 		}
 	})
 }
 
-func (this *app) getHostAndPort() (host string, port int, pr bool, enableWebSocket bool) {
+func (this *app) getHostAndPort() (host string, port int, enableWebSocket bool) {
 	h := struct {
 		Addr         string `json:"addr"`
 		Port         int    `json:"port"`
-		PortReuse    bool   `json:"port_reuse"`
 		UseWebsocket bool   `json:"use_websocket"`
 	}{}
 	if err := this.configurator.GetStruct("http", &h); err != nil {
@@ -172,7 +159,6 @@ func (this *app) getHostAndPort() (host string, port int, pr bool, enableWebSock
 
 	host = h.Addr
 	port = h.Port
-	pr = h.PortReuse
 	enableWebSocket = h.UseWebsocket
 	return
 }
