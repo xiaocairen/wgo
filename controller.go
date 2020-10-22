@@ -27,6 +27,10 @@ func (this *WgoController) GetCookie(name string) string {
 	return c.Value
 }
 
+func (this *WgoController) AddCookie(name, value string, maxAge int) {
+	this.Response.AddCookie(name, value, "/", maxAge, false, true)
+}
+
 func (this *WgoController) SetCookie(name, value string, maxAge int) {
 	this.Response.SetCookie(name, value, "/", maxAge, false, true)
 }
