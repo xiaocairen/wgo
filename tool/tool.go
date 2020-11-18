@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"unsafe"
-	"time"
 )
 
 const (
@@ -53,7 +52,6 @@ func MD5(p []byte) string {
 }
 
 func RandomInt(min int, max int) int {
-	rand.Seed(time.Now().UnixNano())
 	return min + rand.Intn(max-min)
 }
 
