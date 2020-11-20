@@ -79,7 +79,7 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (this *server) callInterceptor(inp reflect.Value, params []reflect.Value) (bool, []byte) {
 	ret := inp.MethodByName("Before").Call(params)
 	if 2 != len(ret) {
-		log.Panic("controller interceptor '%s' return must be (bool, []byte)", inp.Type().Kind().String())
+		log.Panicf("controller interceptor '%s' return must be (bool, []byte)", inp.Type().Kind().String())
 	}
 
 	res := ret[0]
@@ -87,7 +87,7 @@ func (this *server) callInterceptor(inp reflect.Value, params []reflect.Value) (
 	rtp := res.Type()
 	dtp := dat.Type()
 	if rtp.Kind() != reflect.Bool || dtp.Kind() != reflect.Slice || dtp.Elem().Kind() != reflect.Uint8 {
-		log.Panic("controller interceptor '%s' return must be (bool, []byte)", inp.Type().Kind().String())
+		log.Panicf("controller interceptor '%s' return must be (bool, []byte)", inp.Type().Kind().String())
 	}
 	return res.Bool(), dat.Bytes()
 }
@@ -111,7 +111,7 @@ func (this *server) render(w http.ResponseWriter, cv reflect.Value, router Route
 
 	switch len(ret) {
 	default:
-		log.Panicf("%s of %s return must be []byte or (string, interface{}) or (*template.Template, interface{})")
+		log.Panicf("%s of %s return must be []byte or (string, interface{}) or (*template.Template, interface{})", router.Method.Name, router.ControllerName)
 
 	case 1:
 		rt := ret[0].Type()
