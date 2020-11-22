@@ -596,10 +596,10 @@ func (r *Rows) ScanStruct(out interface{}) error {
 					break
 				}
 			}
-			if !found {
+			/*if !found {
 				r.rows.Close()
 				return fmt.Errorf("not found '%s' in struct", ct.Name())
-			}
+			}*/
 		} else {
 			fields[k] = sf
 		}
