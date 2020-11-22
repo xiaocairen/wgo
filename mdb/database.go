@@ -587,7 +587,20 @@ func (r *Rows) ScanStruct(out interface{}) error {
 	}
 
 	for k, ct := range coltype {
-		if sf, found := ote.FieldByName(ct.Name()); !found {
+		sf, found := ote.FieldByName(ct.Name())
+		if found {
+			fields[k] = sf
+		} else {
+			for i := 0; i < ote.NumField(); i++ {
+				f := ote.Field(i)
+				if ct.Name() == f.Tag.Get(STRUCT_TAG) {
+					fields[k] = f
+					found = true
+					break
+				}
+			}
+		}
+		if !found {
 			for i := 0; i < ote.NumField(); i++ {
 				f := ote.Field(i)
 				if ct.Name() == f.Tag.Get(STRUCT_TAG) {
@@ -604,7 +617,7 @@ func (r *Rows) ScanStruct(out interface{}) error {
 			fields[k] = sf
 		}
 
-		if !ove.FieldByName(fields[k].Name).CanSet() {
+		if found && !ove.FieldByName(fields[k].Name).CanSet() {
 			r.rows.Close()
 			return fmt.Errorf("field '%s' in struct can't be set", fields[k].Name)
 		}
