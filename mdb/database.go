@@ -574,7 +574,7 @@ func (r *Rows) ScanStruct(out interface{}) error {
 		ov     = reflect.ValueOf(out)
 		ote    = ot.Elem()
 		ove    = ov.Elem()
-		fields = make([]reflect.StructField, n)
+		fields = make([]*reflect.StructField, n)
 	)
 
 	if ot.Kind() != reflect.Ptr || ote.Kind() != reflect.Struct {
@@ -587,24 +587,24 @@ func (r *Rows) ScanStruct(out interface{}) error {
 	}
 
 	for k, ct := range coltype {
-		if sf, found := ote.FieldByName(ct.Name()); !found {
+		sf, found := ote.FieldByName(ct.Name())
+		if found {
+			fields[k] = &sf
+		} else {
 			for i := 0; i < ote.NumField(); i++ {
 				f := ote.Field(i)
 				if ct.Name() == f.Tag.Get(STRUCT_TAG) {
-					fields[k] = f
+					fields[k] = &f
 					found = true
 					break
 				}
 			}
 			if !found {
-				r.rows.Close()
-				return fmt.Errorf("not found '%s' in struct", ct.Name())
+				fields[k] = nil
 			}
-		} else {
-			fields[k] = sf
 		}
 
-		if !ove.FieldByName(fields[k].Name).CanSet() {
+		if found && !ove.FieldByName(fields[k].Name).CanSet() {
 			r.rows.Close()
 			return fmt.Errorf("field '%s' in struct can't be set", fields[k].Name)
 		}
@@ -633,7 +633,7 @@ func (r *Rows) ScanStructAll(in interface{}) ([]interface{}, error) {
 		ov     = reflect.ValueOf(in)
 		ote    = ot.Elem()
 		ove    = ov.Elem()
-		fields = make([]reflect.StructField, n)
+		fields = make([]*reflect.StructField, n)
 	)
 	if ot.Kind() != reflect.Ptr || ote.Kind() != reflect.Struct {
 		return nil, fmt.Errorf("param in must be ptr to struct")
@@ -643,23 +643,24 @@ func (r *Rows) ScanStructAll(in interface{}) ([]interface{}, error) {
 	}
 
 	for k, ct := range coltype {
-		if sf, found := ote.FieldByName(ct.Name()); !found {
+		sf, found := ote.FieldByName(ct.Name())
+		if found {
+			fields[k] = &sf
+		} else {
 			for i := 0; i < ote.NumField(); i++ {
 				f := ote.Field(i)
 				if ct.Name() == f.Tag.Get(STRUCT_TAG) {
-					fields[k] = f
+					fields[k] = &f
 					found = true
 					break
 				}
 			}
 			if !found {
-				return nil, fmt.Errorf("not found '%s' in struct", ct.Name())
+				fields[k] = nil
 			}
-		} else {
-			fields[k] = sf
 		}
 
-		if !ove.FieldByName(fields[k].Name).CanSet() {
+		if found && !ove.FieldByName(fields[k].Name).CanSet() {
 			return nil, fmt.Errorf("field '%s' in struct can't be set", fields[k].Name)
 		}
 	}
@@ -674,14 +675,14 @@ func (r *Rows) ScanStructAll(in interface{}) ([]interface{}, error) {
 		}
 		out = append(out, tmp)
 	}
-	if err := r.rows.Err(); err != nil {
-		return nil, err
+	if e := r.rows.Err(); e != nil {
+		return nil, e
 	}
 	return out, nil
 }
 
-func (r *Rows) scanStruct(ote reflect.Type, ove reflect.Value, coltype []*sql.ColumnType, fields []reflect.StructField) error {
-	values := make([]interface{}, len(coltype))
+func (r *Rows) scanStruct(ote reflect.Type, ove reflect.Value, coltype []*sql.ColumnType, fields []*reflect.StructField) error {
+	var values = make([]interface{}, len(coltype))
 	for k, ct := range coltype {
 		switch ct.ScanType().Kind() {
 		case reflect.Uint:
@@ -730,14 +731,16 @@ func (r *Rows) scanStruct(ote reflect.Type, ove reflect.Value, coltype []*sql.Co
 		}
 	}
 
-	if err := r.rows.Scan(values...); err != nil {
-		return err
+	if e := r.rows.Scan(values...); e != nil {
+		return e
 	}
 
 	for k, f := range fields {
+		if f == nil {
+			continue
+		}
 		fillStruct(ote, ove, f, values[k])
 	}
-
 	return nil
 }
 
@@ -771,6 +774,18 @@ func (dt *Tx) Delete(sql msql.Delete) *txModifyQuery {
 func (dt *Tx) Prepare(query string) *dbStmt {
 	stmt, err := dt.tx.Prepare(query)
 	return &dbStmt{stmt: stmt, lerr: err}
+}
+
+func (dt *Tx) Exec(query string, args ...interface{}) (sql.Result, error) {
+	return dt.tx.Exec(query, args...)
+}
+
+func (dt *Tx) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	return dt.tx.Query(query, args...)
+}
+
+func (dt *Tx) QueryRow(query string, args ...interface{}) *sql.Row {
+	return dt.tx.QueryRow(query, args...)
 }
 
 func (dt *Tx) Commit() error {
@@ -815,7 +830,7 @@ const (
 	UINT64_MAX = 18446744073709551615
 )
 
-func fillStruct(ote reflect.Type, ove reflect.Value, field reflect.StructField, value interface{}) {
+func fillStruct(ote reflect.Type, ove reflect.Value, field *reflect.StructField, value interface{}) {
 	org := ove.FieldByName(field.Name)
 	val := reflect.ValueOf(value).Elem()
 	orgType := org.Type()
