@@ -976,6 +976,30 @@ func (s *svc) LoadPaginator(selection *msql.Select, curPage, pageSize int64) (*P
 	}, nil
 }
 
+func (s *svc) LoadPaginatorByWhere(where *msql.WhereCondition, curPage, pageSize int64, orderBy []string) (*Paginator, error) {
+	if s.newErr != nil {
+		return nil, s.newErr
+	}
+
+	if nil == orderBy {
+		orderBy = msql.OrderBy(s.table.primaryKey + " DESC")
+	}
+	var selection = &msql.Select{
+		Select:  msql.Fields(s.table.tableFields...),
+		From:    msql.Table{Table: s.table.tableName},
+		Where:   where,
+		OrderBy: orderBy,
+	}
+
+	return &Paginator{
+		Conn:      s.conn,
+		target:    s.target,
+		Selection: selection,
+		CurPage:   curPage,
+		PerSize:   pageSize,
+	}, nil
+}
+
 func (s *svc) GetPrimaryKey() string {
 	return s.table.primaryKey
 }
