@@ -1,6 +1,7 @@
 package httputil
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"io"
@@ -69,12 +70,17 @@ func (r *Request) Post(url, body string) (*Response, error) {
 func (r *Request) PostJSON(url string, data interface{}) (*Response, error) {
 	r.method = "POST"
 	r.url = url
-	byt, err := json.Marshal(data)
-	if err != nil {
-		return nil, err
+
+	var (
+		buf = bytes.NewBuffer([]byte{})
+		enc = json.NewEncoder(buf)
+	)
+	enc.SetEscapeHTML(false)
+	if e := enc.Encode(data); e != nil {
+		return nil, e
 	}
 
-	r.body = string(byt)
+	r.body = buf.String()
 	r.SetHeader("Content-Type", "application/json")
 
 	return r.handleRequest()
