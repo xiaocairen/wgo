@@ -91,9 +91,12 @@ func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (ro
 			routerall = ru
 			continue
 		}
+		if urlpathlen < ru.Pathlen || ru.Path != req.URL.Path[0:ru.Pathlen] {
+			continue
+		}
 
 		if 0 == ru.pathParamsNum {
-			if urlpathlen < ru.Pathlen || ru.Path != req.URL.Path[0:ru.Pathlen] || (urlpathlen > ru.Pathlen && '/' != req.URL.Path[ru.Pathlen]) {
+			if urlpathlen > ru.Pathlen && '/' != req.URL.Path[ru.Pathlen] {
 				continue
 			}
 			paramlist = append(paramlist, nil)
@@ -101,11 +104,15 @@ func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (ro
 			continue
 		}
 
-		if urlpathlen <= ru.Pathlen || ru.Path != req.URL.Path[0:ru.Pathlen] || (ru.Pathlen > 1 && '/' != req.URL.Path[ru.Pathlen]) {
+		if urlpathlen == ru.Pathlen || (ru.Pathlen > 1 && '/' != req.URL.Path[ru.Pathlen]) {
 			continue
 		}
 
-		var pathParams = strings.Split(req.URL.Path[ru.Pathlen+1:], "/")
+		var parampos = ru.Pathlen+1
+		if ru.Pathlen == 1 {
+			parampos = 1
+		}
+		var pathParams = strings.Split(req.URL.Path[parampos:], "/")
 		if len(pathParams) < ru.pathParamsNum {
 			continue
 		}
