@@ -53,16 +53,16 @@ func (this *router) getHandler(r *http.Request) (router Router, params []routePa
 	return
 }
 
-func (this *router) searchRoute(routes []*routeNamespace, r *http.Request) (router Router, params []routePathParam, err error) {
+func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (router Router, params []routePathParam, err error) {
 	if 0 == len(routes) {
-		err = RouteNotFoundError{path: r.RequestURI}
+		err = RouteNotFoundError{path: req.RequestURI}
 		return
 	}
 
 	var (
 		routeIt *routeNamespace
 		routeSp *routeNamespace
-		domain  = this.parseHost(r)
+		domain  = this.parseHost(req)
 	)
 	for key, rns := range routes {
 		if strings.Contains(domain, rns.subdomain+".") {
@@ -74,21 +74,26 @@ func (this *router) searchRoute(routes []*routeNamespace, r *http.Request) (rout
 	}
 	if nil == routeIt {
 		if nil == routeSp {
-			err = RouteNotFoundError{path: r.Host + r.RequestURI}
+			err = RouteNotFoundError{path: req.Host + req.RequestURI}
 			return
-		} else {
-			routeIt = routeSp
 		}
+		routeIt = routeSp
 	}
 
 	var (
-		urlpathlen = len(r.URL.Path)
-		routelist  []*Router
-		paramlist  [][]routePathParam
+		routerall  *Router
+		urlpathlen = len(req.URL.Path)
+		routelist  = make([]*Router, 0)
+		paramlist  = make([][]routePathParam, 0)
 	)
 	for key, ru := range routeIt.routers {
+		if ru.Path == "/*" {
+			routerall = ru
+			continue
+		}
+
 		if 0 == ru.pathParamsNum {
-			if urlpathlen < ru.Pathlen || ru.Path != r.URL.Path[0:ru.Pathlen] || (urlpathlen > ru.Pathlen && '/' != r.URL.Path[ru.Pathlen]) {
+			if urlpathlen < ru.Pathlen || ru.Path != req.URL.Path[0:ru.Pathlen] || (urlpathlen > ru.Pathlen && '/' != req.URL.Path[ru.Pathlen]) {
 				continue
 			}
 			paramlist = append(paramlist, nil)
@@ -96,11 +101,11 @@ func (this *router) searchRoute(routes []*routeNamespace, r *http.Request) (rout
 			continue
 		}
 
-		if urlpathlen <= ru.Pathlen || ru.Path != r.URL.Path[0:ru.Pathlen] || '/' != r.URL.Path[ru.Pathlen] {
+		if urlpathlen <= ru.Pathlen || ru.Path != req.URL.Path[0:ru.Pathlen] || (ru.Pathlen > 1 && '/' != req.URL.Path[ru.Pathlen]) {
 			continue
 		}
 
-		pathParams := strings.Split(r.URL.Path[ru.Pathlen+1:], "/")
+		var pathParams = strings.Split(req.URL.Path[ru.Pathlen+1:], "/")
 		if len(pathParams) < ru.pathParamsNum {
 			continue
 		}
@@ -189,7 +194,11 @@ func (this *router) searchRoute(routes []*routeNamespace, r *http.Request) (rout
 
 	switch len(routelist) {
 	case 0:
-		err = RouteNotFoundError{path: r.Host + r.RequestURI}
+		if nil == routerall {
+			err = RouteNotFoundError{path: req.Host + req.RequestURI}
+		} else {
+			router = *routerall
+		}
 	case 1:
 		router = *routelist[0]
 		params = paramlist[0]
@@ -252,14 +261,6 @@ type RouteCollection func(register *RouteRegister)
 
 func (fn RouteCollection) call(register *RouteRegister) {
 	fn(register)
-	/*for _, r := range register.get {
-		fmt.Printf("r.subdomain => %s\n", r.subdomain)
-		for _, n := range r.routers {
-			fmt.Printf("Path => %s\n", n.Path)
-			fmt.Printf("ControllerName => %s\n", n.ControllerName)
-			fmt.Printf("Method.Name => %s\n", n.Method.Name)
-		}
-	}*/
 }
 
 type RouteUnit struct {
@@ -484,23 +485,33 @@ func (this routeUnitHttpMethod) parseRouteMethod(m *routeNamespace, unit RouteUn
 }
 
 func parseRoutePath(routePath string) (path string, params [][]interface{}) {
-	n := strings.Index(routePath, "/:")
-	if 0 == n || 1 == n {
-		log.Panicf("not support route path '%s'", routePath)
+	if routePath == "/*" {
+		path = "/*"
+		return
 	}
 
-	var pStr string
-	if -1 == n {
+	var (
+		pstr string
+		n    = strings.Index(routePath, "/:")
+	)
+	switch n {
+	case -1:
 		path = routePath
-		pStr = ""
-	} else {
+		pstr = ""
+	case 0:
+		path = "/"
+		pstr = routePath[1:]
+	case 1:
+		path = "/"
+		pstr = routePath[2:]
+	default:
 		path = routePath[0:n]
-		pStr = routePath[n+1:]
+		pstr = routePath[n+1:]
 	}
 
-	if len(pStr) > 0 {
-		pArr := strings.Split(pStr, "/")
-		for _, p := range pArr {
+	if len(pstr) > 0 {
+		parr := strings.Split(pstr, "/")
+		for _, p := range parr {
 			var param []interface{}
 			p = strings.TrimLeft(p, ":")
 			tmp := strings.Split(p, ":")
