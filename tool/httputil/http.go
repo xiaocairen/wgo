@@ -20,7 +20,7 @@ type Request struct {
 
 type Response struct {
 	HttpCode int
-	Headers  map[string][]string
+	Headers  http.Header
 	Body     []byte
 }
 
@@ -159,12 +159,8 @@ func (r *Response) GetHeaders() map[string][]string {
 	return r.Headers
 }
 
-func (r *Response) GetHeader(key string) []string {
-	if h, f := r.Headers[key]; f {
-		return h
-	}
-
-	return nil
+func (r *Response) GetHeader(key string) string {
+	return r.Headers.Get(key)
 }
 
 func (r *Response) GetBody() string {
