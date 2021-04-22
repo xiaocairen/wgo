@@ -62,7 +62,6 @@ func (r *Request) Post(url, body string) (*Response, error) {
 	r.method = "POST"
 	r.url = url
 	r.body = body
-	r.SetHeader("Content-Type", "application/x-www-form-urlencoded")
 
 	return r.handleRequest()
 }
