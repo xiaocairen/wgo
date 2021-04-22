@@ -116,7 +116,7 @@ func (r *Request) handleRequest() (*Response, error) {
 
 	if len(r.headers) > 0 {
 		for k, v := range r.headers {
-			req.Header.Add(k, v)
+			req.Header.Set(k, v)
 		}
 	}
 
