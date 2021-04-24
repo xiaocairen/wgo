@@ -278,3 +278,7 @@ func (r *HttpResponse) Addheader(key string, value string) {
 func (r *HttpResponse) SetHeader(key string, value string) {
 	r.Writer.Header().Set(key, value)
 }
+
+func (r *HttpResponse) WriteHeader(statusCode int) {
+	r.Writer.WriteHeader(statusCode)
+}
