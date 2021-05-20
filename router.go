@@ -588,12 +588,6 @@ func parseRouteAction(action string) (name string, params [][]string) {
 			params = append(params, tmp)
 		}
 	}
-	println("--->", action, n, name, prm, params)
-	for _, r := range params {
-		for _, row := range r {
-			println(">>", row)
-		}
- 	}
 	return
 }
 
