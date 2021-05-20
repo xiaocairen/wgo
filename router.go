@@ -625,6 +625,7 @@ func parseRouteController(controller interface{}, action string, actParams [][]s
 
 	m := reflect.ValueOf(controller).MethodByName(action).Type()
 	n := m.NumIn()
+	println(n, len(actParams))
 	if n != len(actParams) {
 		log.Panicf("param num of method '%s' of '%s' mismatch router", action, rtc.String())
 	}
