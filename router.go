@@ -210,11 +210,10 @@ func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (ro
 		router = *routelist[0]
 		params = paramlist[0]
 	default:
-		router = *routelist[0]
-		for k, r := range routelist[1:] {
-			if router.Pathlen < r.Pathlen {
+		for k, r := range routelist {
+			if r.Pathlen > router.Pathlen {
 				router = *r
-				params = paramlist[k+1]
+				params = paramlist[k]
 			}
 		}
 	}

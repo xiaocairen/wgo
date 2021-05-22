@@ -30,7 +30,7 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	router, params, notfound := this.Router.getHandler(r)
 	if nil != notfound {
-		w.Write([]byte(notfound.Error()))
+		_, _ = w.Write([]byte(notfound.Error()))
 		return
 	}
 
