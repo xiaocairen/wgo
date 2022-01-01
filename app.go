@@ -20,8 +20,8 @@ import (
 )
 
 var (
-	appInstance *app
-	onceAppRun  sync.Once
+	appinst *app
+	oncerun sync.Once
 )
 
 type WebsocketHandler func(w http.ResponseWriter, r *http.Request, c *config.Configurator, s *service.Service)
@@ -46,7 +46,7 @@ type app struct {
 }
 
 func init() {
-	if nil == appInstance {
+	if nil == appinst {
 		path, err := filepath.Abs(filepath.Dir(os.Args[0]))
 		if err != nil {
 			log.Panic(err)
@@ -55,19 +55,19 @@ func init() {
 			log.Panic("unable to change working dir " + err.Error())
 		}
 
-		appInstance = &app{
+		appinst = &app{
 			configurator:      config.New("app.json"),
 			websocketHandlers: make(map[string]WebsocketHandler),
 		}
 
-		if err := appInstance.configurator.GetBool("debug", &appInstance.debug); err != nil {
+		if err := appinst.configurator.GetBool("debug", &appinst.debug); err != nil {
 			log.Panic(err)
 		}
 
 		var dbTestPing bool
-		appInstance.configurator.GetBool("db_test_ping", &dbTestPing)
+		appinst.configurator.GetBool("db_test_ping", &dbTestPing)
 
-		dbc, err := appInstance.configurator.Get("database")
+		dbc, err := appinst.configurator.Get("database")
 		if nil != err {
 			if dbTestPing {
 				log.Panic(err)
@@ -91,18 +91,18 @@ func init() {
 			return
 		}
 
-		appInstance.servicer = service.NewServicer(db)
+		appinst.servicer = service.NewServicer(db)
 	}
 
 	initLogger()
 }
 
 func GetApp() *app {
-	return appInstance
+	return appinst
 }
 
 func (this *app) Run() {
-	onceAppRun.Do(func() {
+	oncerun.Do(func() {
 		this.router = &router{RouteCollection: this.routeCollection}
 		s := &server{app: this, Configurator: this.configurator, Router: this.router}
 		this.router.init([]RouteControllerInjector{s})
@@ -252,7 +252,7 @@ func (this *app) GetConfigurator() *config.Configurator {
 
 func initLogger() {
 	var outer int
-	if e := appInstance.configurator.GetInt("log_outer", &outer); e != nil {
+	if e := appinst.configurator.GetInt("log_outer", &outer); e != nil {
 		log.Panic(e)
 	}
 

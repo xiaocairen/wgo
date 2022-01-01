@@ -3,6 +3,7 @@ package wgo
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -35,6 +36,7 @@ type UnitHttpMethod interface {
 type HttpRequest struct {
 	Request *http.Request
 	query   url.Values
+	body    []byte
 }
 
 func (r *HttpRequest) init() {
@@ -42,6 +44,25 @@ func (r *HttpRequest) init() {
 	if r.Request.Method == POST || r.Request.Method == PUT || r.Request.Method == PATCH {
 		r.Request.ParseForm()
 	}
+}
+
+func (r *HttpRequest) Body() []byte {
+	if nil != r.body {
+		return r.body
+	}
+
+	var buf = make([]byte, 1024)
+	for {
+		n, e := r.Request.Body.Read(buf)
+		if n > 0 {
+			r.body = append(r.body, buf[:n]...)
+		}
+		if e != nil && e == io.EOF {
+			break
+		}
+	}
+
+	return r.body
 }
 
 func (r *HttpRequest) Get(key string) string {
