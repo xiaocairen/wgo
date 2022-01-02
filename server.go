@@ -28,7 +28,7 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		defer this.app.finally(w, r)
 	}
 
-	router, params, notfound := this.Router.getHandler(r)
+	route, params, notfound := this.Router.getHandler(r)
 	if nil != notfound {
 		_, _ = w.Write([]byte(notfound.Error()))
 		return
@@ -39,29 +39,31 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	res := &HttpResponse{Writer: w}
 	req.init()
 
-	controller := tool.StructCopy(router.Controller)
+	controller := tool.StructCopy(route.Controller)
 	cv := reflect.ValueOf(controller)
 	cve := cv.Elem()
 
-	cve.FieldByName("Router").Set(reflect.ValueOf(router))
+	cve.FieldByName("Router").Set(reflect.ValueOf(route))
 	cve.FieldByName("Service").Set(reflect.ValueOf(svc))
 	cve.FieldByName("Request").Set(reflect.ValueOf(req))
 	cve.FieldByName("Response").Set(reflect.ValueOf(res))
 
 	for _, iface := range this.app.reqControllerInjectorChain {
-		iface.InjectRequestController(router, cve, svc)
+		iface.InjectRequestController(route, cve, svc)
 	}
 
-	if nil == router.interceptor {
-		this.render(w, cv, router, params)
+	this.convertBodyToParams(req, params)
+
+	if nil == route.interceptor {
+		this.render(w, cv, route, params)
 	} else {
 		var (
 			result   bool
 			resData  []byte
-			inp      = tool.StructCopy(router.interceptor)
+			inp      = tool.StructCopy(route.interceptor)
 			inpValue = reflect.ValueOf(inp)
 			inpParam = []reflect.Value{
-				reflect.ValueOf(router),
+				reflect.ValueOf(route),
 				reflect.ValueOf(svc),
 				reflect.ValueOf(req),
 				reflect.ValueOf(res),
@@ -71,7 +73,27 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if !result {
 			w.Write(resData)
 		} else {
-			this.render(w, cv, router, params)
+			this.render(w, cv, route, params)
+		}
+	}
+}
+
+func (this *server) convertBodyToParams(r *HttpRequest, params []methodParam) {
+	if (r.Request.Method == POST || r.Request.Method == PUT) && strings.Contains(r.GetHeader("content-type"), "application/json") {
+		var body = r.Body()
+		if len(body) > 0 {
+			for k, p := range params {
+				if p.IsStruct {
+					val := reflect.New(p.ParamType)
+					tmp := val.Interface()
+					json.Unmarshal(body, tmp)
+					if p.ParamKind == reflect.Ptr {
+						params[k].StructValue = val
+					} else {
+						params[k].StructValue = val.Elem()
+					}
+				}
+			}
 		}
 	}
 }
@@ -92,7 +114,7 @@ func (this *server) callInterceptor(inp reflect.Value, params []reflect.Value) (
 	return res.Bool(), dat.Bytes()
 }
 
-func (this *server) render(w http.ResponseWriter, cv reflect.Value, router Router, params []routePathParam) {
+func (this *server) render(w http.ResponseWriter, cv reflect.Value, router Router, params []methodParam) {
 	if router.HasInit {
 		cv.MethodByName("Init").Call(nil)
 	}
@@ -103,7 +125,11 @@ func (this *server) render(w http.ResponseWriter, cv reflect.Value, router Route
 	} else {
 		var values = make([]reflect.Value, len(params))
 		for k, p := range params {
-			values[k] = reflect.ValueOf(p.ppvalue)
+			if p.IsStruct {
+				values[k] = p.StructValue
+			} else {
+				values[k] = reflect.ValueOf(p.Value)
+			}
 		}
 
 		ret = cv.MethodByName(router.Method.Name).Call(values)
@@ -194,8 +220,8 @@ func (this *server) InjectRouteController(controller interface{}) {
 		objv = reflect.ValueOf(controller).Elem()
 		name = objt.String()
 	)
-	this.checkController(objt, objv, name)
 
+	this.checkController(objt, objv, name)
 	this.assigConfigurator(objt, objv, name)
 	this.assigTemplate(objt, objv, name)
 }

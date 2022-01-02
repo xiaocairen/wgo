@@ -9,30 +9,6 @@ import (
 	"strconv"
 )
 
-const (
-	GET    = "GET"
-	POST   = "POST"
-	PUT    = "PUT"
-	DELETE = "DELETE"
-	PATCH  = "PATCH"
-)
-
-type HttpMethod interface {
-	Get(path string, controller interface{}, action string)
-	Post(path string, controller interface{}, action string)
-	Put(path string, controller interface{}, action string)
-	Delete(path string, controller interface{}, action string)
-	Any(path string, controller interface{}, action string)
-}
-
-type UnitHttpMethod interface {
-	Get(unit RouteUnit)
-	Post(unit RouteUnit)
-	Put(unit RouteUnit)
-	Delete(unit RouteUnit)
-	Any(unit RouteUnit)
-}
-
 type HttpRequest struct {
 	Request *http.Request
 	query   url.Values
@@ -206,16 +182,32 @@ func (r *HttpRequest) DelHeader(key string) {
 	r.Request.Header.Del(key)
 }
 
+func (r *HttpRequest) GetHost() string {
+	return r.Request.Host
+}
+
+func (r *HttpRequest) GetRequestURI() string {
+	return r.Request.URL.RequestURI()
+}
+
+func (r *HttpRequest) GetRequestPath() string {
+	return r.Request.URL.Path
+}
+
+func (r *HttpRequest) GetUrlRawQuery() string {
+	return r.Request.URL.RawQuery
+}
+
+func (r *HttpRequest) GetUrlQuery() url.Values {
+	return r.Request.URL.Query()
+}
+
 func (r *HttpRequest) GetMethod() string {
 	return r.Request.Method
 }
 
 func (r *HttpRequest) GetReferer() string {
 	return r.Request.Header.Get("referer")
-}
-
-func (r *HttpRequest) GetHost() string {
-	return r.Request.Host
 }
 
 func (r *HttpRequest) GetRemoteAddr() string {

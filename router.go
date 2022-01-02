@@ -17,6 +17,23 @@ type routePathParam struct {
 	ppvalue interface{}
 }
 
+type RouteNotFoundError struct {
+	path string
+}
+
+func (nf RouteNotFoundError) Error() string {
+	return fmt.Sprintf("not found route of path '%s'", nf.path)
+}
+
+type RouteCollection func(register *RouteRegister)
+
+func (fn RouteCollection) call(register *RouteRegister) {
+	fn(register)
+}
+
+// --------------------------------------------------------------------------------
+// router call by app, return Router
+// --------------------------------------------------------------------------------
 type router struct {
 	RouteRegister   *RouteRegister
 	RouteCollection RouteCollection
@@ -27,7 +44,7 @@ func (this *router) init(chain []RouteControllerInjector) {
 	this.RouteCollection.call(this.RouteRegister)
 }
 
-func (this *router) getHandler(r *http.Request) (router Router, params []routePathParam, err error) {
+func (this *router) getHandler(r *http.Request) (router Router, params []methodParam, err error) {
 	switch r.Method {
 	case GET:
 		router, params, err = this.searchRoute(this.RouteRegister.get, r)
@@ -53,7 +70,7 @@ func (this *router) getHandler(r *http.Request) (router Router, params []routePa
 	return
 }
 
-func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (router Router, params []routePathParam, err error) {
+func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (router Router, params []methodParam, err error) {
 	if 0 == len(routes) {
 		err = RouteNotFoundError{path: req.RequestURI}
 		return
@@ -84,118 +101,89 @@ func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (ro
 		routerall  *Router
 		urlpathlen = len(req.URL.Path)
 		routelist  = make([]*Router, 0)
-		paramlist  = make([][]routePathParam, 0)
+		paramlist  = make([][]methodParam, 0)
 	)
-	for key, ru := range routeIt.routers {
-		if ru.Path == "/*" {
-			routerall = ru
-			continue
+	for key, route := range routeIt.routers {
+		if route.Path == req.URL.Path {
+			router = *route
+			params = route.MethodParams
+			return
 		}
-		if urlpathlen < ru.Pathlen || ru.Path != req.URL.Path[0:ru.Pathlen] {
+		if route.Path == "/*" {
+			routerall = route
 			continue
 		}
 
-		if 0 == ru.pathParamsNum {
-			if urlpathlen > ru.Pathlen && '/' != req.URL.Path[ru.Pathlen] {
-				continue
+		if route.PathIsRegexp {
+			if route.PathRegexp.MatchString(req.URL.Path) {
+				var (
+					methodParams []methodParam
+					values       = route.PathRegexp.FindStringSubmatch(req.URL.Path)
+				)
+				for _, mp := range route.MethodParams {
+					var f = false
+					for k, pp := range route.PathParams {
+						if mp.Name == pp {
+							f = true
+							var (
+								value   interface{}
+								e       error
+								pathVal = values[k+1]
+							)
+							switch mp.Type {
+							case "int":
+								value, e = strconv.Atoi(pathVal)
+							case "int64":
+								value, e = strconv.ParseInt(pathVal, 10, 64)
+							case "uint64":
+								value, e = strconv.ParseUint(pathVal, 10, 64)
+							case "float32", "float64":
+								value, e = strconv.ParseFloat(pathVal, 64)
+							case "string":
+								value = pathVal
+							}
+							if e != nil {
+								continue
+							}
+
+							methodParams = append(methodParams, methodParam{
+								Name:      mp.Name,
+								Type:      mp.Type,
+								ParamKind: mp.ParamKind,
+								ParamType: mp.ParamType,
+								IsStruct:  mp.IsStruct,
+								Value:     value,
+							})
+						}
+					}
+
+					if !f {
+						methodParams = append(methodParams, methodParam{
+							Name:        mp.Name,
+							Type:        mp.Type,
+							ParamKind:   mp.ParamKind,
+							ParamType:   mp.ParamType,
+							IsStruct:    mp.IsStruct,
+							Value:       nil,
+							StructValue: mp.StructValue,
+						})
+					}
+				}
+
+				paramlist = append(paramlist, methodParams)
+				routelist = append(routelist, routeIt.routers[key])
 			}
-			paramlist = append(paramlist, nil)
-			routelist = append(routelist, routeIt.routers[key])
 			continue
 		}
 
-		if urlpathlen == ru.Pathlen || (ru.Pathlen > 1 && '/' != req.URL.Path[ru.Pathlen]) {
+		if route.Path != req.URL.Path[0:route.Pathlen] ||
+			urlpathlen < route.Pathlen ||
+			(urlpathlen > route.Pathlen && '/' != req.URL.Path[route.Pathlen]) ||
+			(route.Pathlen > 1 && '/' != req.URL.Path[route.Pathlen]) {
 			continue
 		}
 
-		var parampos = ru.Pathlen+1
-		if ru.Pathlen == 1 {
-			parampos = 1
-		}
-		var pathParams = strings.Split(req.URL.Path[parampos:], "/")
-		if len(pathParams) < ru.pathParamsNum {
-			continue
-		}
-
-		var (
-			nomatch   = false
-			tmpParams []routePathParam
-		)
-		for k, pp := range ru.PathParams {
-			ppname, _ := pp[0].(string)
-			pptype, _ := pp[1].(string)
-			switch pptype {
-			case "string":
-				tmpParams = append(tmpParams, routePathParam{
-					ppname:  ppname,
-					pptype:  pptype,
-					ppvalue: pathParams[k],
-				})
-
-			case "int":
-				i, e := strconv.Atoi(pathParams[k])
-				if e != nil {
-					nomatch = true
-					break
-				}
-				pplen := len(pp)
-				if pplen >= 3 {
-					min, _ := pp[2].(int)
-					if i < min {
-						nomatch = true
-						break
-					}
-				}
-				if pplen >= 4 {
-					max, _ := pp[3].(int)
-					if i > max {
-						nomatch = true
-						break
-					}
-				}
-				tmpParams = append(tmpParams, routePathParam{
-					ppname:  ppname,
-					pptype:  pptype,
-					ppvalue: i,
-				})
-
-			case "float64":
-				f, e := strconv.ParseFloat(pathParams[k], 64)
-				if e != nil {
-					nomatch = true
-					break
-				}
-				pplen := len(pp)
-				if pplen >= 3 {
-					min, _ := pp[2].(float64)
-					if f < min {
-						nomatch = true
-						break
-					}
-				}
-				if pplen >= 4 {
-					max, _ := pp[3].(float64)
-					if f > max {
-						nomatch = true
-						break
-					}
-				}
-				tmpParams = append(tmpParams, routePathParam{
-					ppname:  ppname,
-					pptype:  pptype,
-					ppvalue: f,
-				})
-
-			default:
-				nomatch = true
-				break
-			}
-		}
-		if nomatch {
-			continue
-		}
-
-		paramlist = append(paramlist, tmpParams)
+		paramlist = append(paramlist, route.MethodParams)
 		routelist = append(routelist, routeIt.routers[key])
 	}
 
@@ -255,34 +243,27 @@ func (this *router) getRouter(method string, controller string, action string) (
 	return Router{}, fmt.Errorf("no router %s to %s:%s", method, controller, action)
 }
 
-type RouteNotFoundError struct {
-	path string
-}
-
-func (nf RouteNotFoundError) Error() string {
-	return fmt.Sprintf("not found route of path '%s'", nf.path)
-}
-
-type RouteCollection func(register *RouteRegister)
-
-func (fn RouteCollection) call(register *RouteRegister) {
-	fn(register)
-}
-
-type RouteUnit struct {
-	Path       string
-	Controller interface{}
-	Action     string
+type methodParam struct {
+	Name        string
+	Type        string
+	ParamKind   reflect.Kind
+	ParamType   reflect.Type
+	IsStruct    bool
+	Value       interface{}
+	StructValue reflect.Value
 }
 
 type Router struct {
 	Path           string
 	Pathlen        int
-	PathParams     [][]interface{}
+	PathIsRegexp   bool
+	PathRegexp     *regexp.Regexp
+	PathParams     []string
 	pathParamsNum  int
 	Controller     interface{}
 	ControllerName string
 	Method         reflect.Method
+	MethodParams   []methodParam
 	HasInit        bool
 	interceptor    RouteInterceptor
 	register       *RouteRegister
@@ -348,6 +329,12 @@ func (this *RouteRegister) Registe(subdomain, namespace string, interceptor Rout
 		register:    this,
 	}
 	fn(uhm, routeHttpMethod{uhm: uhm})
+}
+
+type RouteUnit struct {
+	Path       string
+	Controller interface{}
+	Action     string
 }
 
 type routeHttpMethod struct {
@@ -472,97 +459,53 @@ func (this routeUnitHttpMethod) parseRouteMethod(m *routeNamespace, unit RouteUn
 		path = "/" + this.ns + unit.Path
 	}
 
-	queryPath, pathParams := parseRoutePath(path)
+	pathIsRegexp, queryPath, pathRegexp, pathParams := parseRoutePath(path)
 	actName, actParam := parseRouteAction(unit.Action)
-	ctlName, method, hasInit := parseRouteController(unit.Controller, actName, actParam, pathParams, this.register.injectChain)
+	ctlName, method, methodParams, hasInit := parseRouteController(unit.Controller, actName, actParam, pathParams, this.register.injectChain)
 
 	m.routers = append(m.routers, &Router{
 		Path:           queryPath,
 		Pathlen:        len(queryPath),
+		PathIsRegexp:   pathIsRegexp,
+		PathRegexp:     pathRegexp,
 		PathParams:     pathParams,
 		pathParamsNum:  len(pathParams),
 		Controller:     unit.Controller,
 		ControllerName: ctlName,
 		Method:         method,
+		MethodParams:   methodParams,
 		HasInit:        hasInit,
 		interceptor:    this.interceptor,
 		register:       this.register,
 	})
 }
 
-func parseRoutePath(routePath string) (path string, params [][]interface{}) {
+func parseRoutePath(routePath string) (pathIsRegexp bool, path string, pathRegexp *regexp.Regexp, params []string) {
 	if routePath == "/*" {
+		pathIsRegexp = false
 		path = "/*"
 		return
 	}
 
-	var (
-		pstr string
-		n    = strings.Index(routePath, "/:")
-	)
-	switch n {
-	case -1:
+	var n = strings.Index(routePath, "/:")
+	if -1 == n {
+		pathIsRegexp = false
 		path = routePath
-		pstr = ""
-	case 0:
-		path = "/"
-		pstr = routePath[1:]
-	case 1:
-		path = "/"
-		pstr = routePath[2:]
-	default:
-		path = routePath[0:n]
-		pstr = routePath[n+1:]
+		return
 	}
 
-	if len(pstr) > 0 {
-		parr := strings.Split(pstr, "/")
-		for _, p := range parr {
-			var param []interface{}
-			p = strings.TrimLeft(p, ":")
-			tmp := strings.Split(p, ":")
-			n := len(tmp)
-			if n < 2 {
-				log.Panicf("illegal route path '%s'", path)
-			}
+	pathIsRegexp = true
 
-			tmp[1] = strings.ToLower(tmp[1])
-			param = append(param, tmp[0])
-			param = append(param, tmp[1])
-			if "int" == tmp[1] {
-				if n >= 3 {
-					i, e := strconv.Atoi(tmp[2])
-					if e != nil {
-						log.Panicf("'%s' in route path '%s' can't convert to int", path, tmp[2])
-					}
-					param = append(param, i)
-				}
-				if n >= 4 {
-					i, e := strconv.Atoi(tmp[3])
-					if e != nil {
-						log.Panicf("'%s' in route path '%s' can't convert to int", path, tmp[3])
-					}
-					param = append(param, i)
-				}
-			} else if "float64" == tmp[1] {
-				if n >= 3 {
-					f, e := strconv.ParseFloat(tmp[2], 64)
-					if e != nil {
-						log.Panicf("'%s' in route path '%s' can't convert to float64", path, tmp[2])
-					}
-					param = append(param, f)
-				}
-				if n >= 4 {
-					f, e := strconv.ParseFloat(tmp[3], 64)
-					if e != nil {
-						log.Panicf("'%s' in route path '%s' can't convert to float64", path, tmp[3])
-					}
-					param = append(param, f)
-				}
-			}
-			params = append(params, param)
-		}
+	r := regexp.MustCompile(`/:([^/]+)`)
+	all := r.FindAllStringSubmatch(routePath, -1)
+	var exp = routePath
+	for _, v := range all {
+		params = append(params, v[1])
+		exp = strings.Replace(exp, v[0], "/([^/]+)", -1)
 	}
+
+	path = "^" + exp
+	pathRegexp = regexp.MustCompile(path)
 	return
 }
 
@@ -575,8 +518,8 @@ func parseRouteAction(action string) (name string, params [][]string) {
 	name = action[0:n]
 	prm := strings.TrimSpace(action[n+1 : len(action)-1])
 	if len(prm) > 0 {
-		pArr := strings.Split(prm, ",")
-		for _, p := range pArr {
+		arr := strings.Split(prm, ",")
+		for _, p := range arr {
 			p = strings.TrimSpace(p)
 			tmp := strings.Split(p, " ")
 			if 2 != len(tmp) {
@@ -590,48 +533,92 @@ func parseRouteAction(action string) (name string, params [][]string) {
 	return
 }
 
-func parseRouteController(controller interface{}, action string, actParams [][]string, pathParams [][]interface{}, chain []RouteControllerInjector) (ctlName string, actionMethod reflect.Method, hasInit bool) {
+func parseRouteController(controller interface{}, action string, actParams [][]string, pathParams []string, chain []RouteControllerInjector) (ctlName string, actionMethod reflect.Method, methodParams []methodParam, hasInit bool) {
 	rtc := reflect.TypeOf(controller)
 	if rtc.Kind() != reflect.Ptr || rtc.Elem().Kind() != reflect.Struct {
 		log.Panicf("controller must be ptr point to struct")
 	}
 	ctlName = rtc.Elem().String()
 
-	var found bool
-	for _, pp := range pathParams {
-		ppname, _ := pp[0].(string)
-		pptype, _ := pp[1].(string)
-		found = false
+	var ok bool
+	for _, param := range pathParams {
+		ok = false
 		for _, ap := range actParams {
-			if ap[0] == ppname {
-				if ap[1] != pptype {
-					log.Panicf("type of '%s' of '%s' mismatch path param", ppname, rtc.String())
-				}
-				found = true
+			if ap[0] == param {
+				ok = true
 				break
 			}
 		}
-		if !found {
-			log.Panicf("param '%s' of '%s' be not found in route path params", ppname, rtc.String())
+		if !ok {
+			log.Panicf("path param '%s' not found in method '%s:%s'", param, ctlName, action)
 		}
 	}
 
 	_, hasInit = rtc.MethodByName("Init")
-	actionMethod, found = rtc.MethodByName(action)
-	if !found {
+	actionMethod, ok = rtc.MethodByName(action)
+	if !ok {
 		log.Panicf("not found method '%s' in '%s'", action, rtc.String())
 	}
 
 	m := reflect.ValueOf(controller).MethodByName(action).Type()
 	n := m.NumIn()
 	if n != len(actParams) {
-		log.Panicf("param num of method '%s' of '%s' mismatch router", action, rtc.String())
+		log.Panicf("number of parameters of method '%s:%s' mismatch route register", rtc.String(), action)
 	}
+
 	for i := 0; i < n; i++ {
-		in := m.In(i)
-		if in.Name() != actParams[i][1] {
-			log.Panicf("param[%d] type of method '%s' of '%s' mismatch router", i, action, rtc.String())
+		var (
+			actPt = actParams[i][1]
+			tlen  = len(actPt)
+			pt    = m.In(i)
+		)
+		if pt.Kind() == reflect.Ptr {
+			if pt.Elem().Kind() == reflect.Struct {
+				name := pt.Elem().Name()
+				if actPt[tlen-len(name):] != name {
+					log.Panicf("type of param[%d] of method '%s:%s' mismatch router", i, rtc.String(), action)
+				}
+			} else if pt.Name() != actPt {
+				log.Panicf("type of param[%d] of method '%s:%s' mismatch router", i, rtc.String(), action)
+			}
+		} else if pt.Kind() == reflect.Struct {
+			name := pt.Name()
+			if actPt[tlen-len(name):] != name {
+				log.Panicf("type of param[%d] of method '%s:%s' mismatch router", i, rtc.String(), action)
+			}
+		} else if pt.Name() != actPt {
+			log.Panicf("type of param[%d] of method '%s:%s' mismatch router", i, rtc.String(), action)
 		}
+	}
+
+	for i := 0; i < n; i++ {
+		var (
+			structVal reflect.Value
+			isStruct  bool
+			pt        = m.In(i)
+			pk        = pt.Kind()
+			actParam  = actParams[i]
+		)
+		if pk == reflect.Ptr {
+			if pt.Elem().Kind() == reflect.Struct {
+				isStruct = true
+				structVal = reflect.New(pt.Elem())
+			}
+			pt = pt.Elem()
+		} else if pk == reflect.Struct {
+			isStruct = true
+			structVal = reflect.Zero(pt)
+		}
+
+		methodParams = append(methodParams, methodParam{
+			Name:        actParam[0],
+			Type:        actParam[1],
+			ParamKind:   pk,
+			ParamType:   pt,
+			IsStruct:    isStruct,
+			Value:       nil,
+			StructValue: structVal,
+		})
 	}
 
 	for _, injector := range chain {
@@ -647,4 +634,28 @@ type RouteControllerInjector interface {
 
 type RouteInterceptor interface {
 	Before(router Router, svc *service.Service, r *HttpRequest, w *HttpResponse) (pass bool, res []byte)
+}
+
+const (
+	GET    = "GET"
+	POST   = "POST"
+	PUT    = "PUT"
+	DELETE = "DELETE"
+	PATCH  = "PATCH"
+)
+
+type HttpMethod interface {
+	Get(path string, controller interface{}, action string)
+	Post(path string, controller interface{}, action string)
+	Put(path string, controller interface{}, action string)
+	Delete(path string, controller interface{}, action string)
+	Any(path string, controller interface{}, action string)
+}
+
+type UnitHttpMethod interface {
+	Get(unit RouteUnit)
+	Post(unit RouteUnit)
+	Put(unit RouteUnit)
+	Delete(unit RouteUnit)
+	Any(unit RouteUnit)
 }
