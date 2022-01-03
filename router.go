@@ -517,6 +517,14 @@ func parseRoutePath(routePath string) (pathIsRegexp bool, path string, pathRegex
 		exp = strings.Replace(exp, v[0], "/([^/]+)", -1)
 	}
 
+	// replace ^+*$
+	exp = strings.ReplaceAll(exp, `^`, `\^`)
+	exp = strings.ReplaceAll(exp, `\^/]`, `^/]`)
+	exp = strings.ReplaceAll(exp, `+`, `\+`)
+	exp = strings.ReplaceAll(exp, `]\+)`, `]+)`)
+	exp = strings.ReplaceAll(exp, `*`, `\*`)
+	exp = strings.ReplaceAll(exp, `$`, `\$`)
+
 	path = "^" + exp
 	pathRegexp = regexp.MustCompile(path)
 	return
