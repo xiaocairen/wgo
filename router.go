@@ -176,11 +176,6 @@ func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (ro
 						if e != nil {
 							value = uint64(0)
 						}
-					case "float32":
-						value, e = strconv.ParseFloat(pathVal, 32)
-						if e != nil {
-							value = float32(0)
-						}
 					case "float64":
 						value, e = strconv.ParseFloat(pathVal, 64)
 						if e != nil {
