@@ -118,7 +118,7 @@ func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (ro
 			continue
 		}
 
-		if route.Path != req.URL.Path[0:route.Pathlen] || urlpathlen < route.Pathlen ||
+		if urlpathlen < route.Pathlen || route.Path != req.URL.Path[0:route.Pathlen] ||
 			(urlpathlen > route.Pathlen && '/' != req.URL.Path[route.Pathlen]) ||
 			(route.Pathlen > 1 && '/' != req.URL.Path[route.Pathlen]) {
 			continue
