@@ -11,12 +11,6 @@ import (
 	"strings"
 )
 
-type routePathParam struct {
-	ppname  string
-	pptype  string
-	ppvalue interface{}
-}
-
 type RouteNotFoundError struct {
 	path string
 }
@@ -101,7 +95,7 @@ func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (ro
 		routerall  *Router
 		urlpathlen = len(req.URL.Path)
 		routelist  = make([]*Router, 0)
-		paramlist  = make([][]methodParam, 0)
+		paramlist  = make([][]string, 0)
 	)
 	for key, route := range routeIt.routers {
 		if route.Path == req.URL.Path {
@@ -109,6 +103,7 @@ func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (ro
 			params = route.MethodParams
 			return
 		}
+
 		if route.Path == "/*" {
 			routerall = route
 			continue
@@ -116,77 +111,24 @@ func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (ro
 
 		if route.PathIsRegexp {
 			if route.PathRegexp.MatchString(req.URL.Path) {
-				var (
-					methodParams []methodParam
-					values       = route.PathRegexp.FindStringSubmatch(req.URL.Path)
-				)
-				for _, mp := range route.MethodParams {
-					var f = false
-					for k, pp := range route.PathParams {
-						if mp.Name == pp {
-							f = true
-							var (
-								value   interface{}
-								e       error
-								pathVal = values[k+1]
-							)
-							switch mp.Type {
-							case "int":
-								value, e = strconv.Atoi(pathVal)
-							case "int64":
-								value, e = strconv.ParseInt(pathVal, 10, 64)
-							case "uint64":
-								value, e = strconv.ParseUint(pathVal, 10, 64)
-							case "float32", "float64":
-								value, e = strconv.ParseFloat(pathVal, 64)
-							case "string":
-								value = pathVal
-							}
-							if e != nil {
-								continue
-							}
-
-							methodParams = append(methodParams, methodParam{
-								Name:      mp.Name,
-								Type:      mp.Type,
-								ParamKind: mp.ParamKind,
-								ParamType: mp.ParamType,
-								IsStruct:  mp.IsStruct,
-								Value:     value,
-							})
-						}
-					}
-
-					if !f {
-						methodParams = append(methodParams, methodParam{
-							Name:        mp.Name,
-							Type:        mp.Type,
-							ParamKind:   mp.ParamKind,
-							ParamType:   mp.ParamType,
-							IsStruct:    mp.IsStruct,
-							Value:       nil,
-							StructValue: mp.StructValue,
-						})
-					}
-				}
-
-				paramlist = append(paramlist, methodParams)
+				values := route.PathRegexp.FindStringSubmatch(req.URL.Path)
+				paramlist = append(paramlist, values[1:])
 				routelist = append(routelist, routeIt.routers[key])
 			}
 			continue
 		}
 
-		if route.Path != req.URL.Path[0:route.Pathlen] ||
-			urlpathlen < route.Pathlen ||
+		if route.Path != req.URL.Path[0:route.Pathlen] || urlpathlen < route.Pathlen ||
 			(urlpathlen > route.Pathlen && '/' != req.URL.Path[route.Pathlen]) ||
 			(route.Pathlen > 1 && '/' != req.URL.Path[route.Pathlen]) {
 			continue
 		}
 
-		paramlist = append(paramlist, route.MethodParams)
+		paramlist = append(paramlist, nil)
 		routelist = append(routelist, routeIt.routers[key])
 	}
 
+	var parameters []string
 	switch len(routelist) {
 	case 0:
 		if nil == routerall {
@@ -196,22 +138,92 @@ func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (ro
 		}
 	case 1:
 		router = *routelist[0]
-		params = paramlist[0]
+		parameters = paramlist[0]
 	default:
 		for k, r := range routelist {
 			if r.Pathlen > router.Pathlen {
 				router = *r
-				params = paramlist[k]
+				parameters = paramlist[k]
 			}
 		}
 	}
+
+	if nil != parameters {
+		for _, mp := range router.MethodParams {
+			var found = false
+			for k, pp := range router.PathParams {
+				if mp.Name == pp {
+					found = true
+
+					var (
+						value   interface{}
+						e       error
+						pathVal = parameters[k]
+					)
+					switch mp.Type {
+					case "int":
+						value, e = strconv.Atoi(pathVal)
+						if e != nil {
+							value = 0
+						}
+					case "int64":
+						value, e = strconv.ParseInt(pathVal, 10, 64)
+						if e != nil {
+							value = int64(0)
+						}
+					case "uint64":
+						value, e = strconv.ParseUint(pathVal, 10, 64)
+						if e != nil {
+							value = uint64(0)
+						}
+					case "float32":
+						value, e = strconv.ParseFloat(pathVal, 32)
+						if e != nil {
+							value = float32(0)
+						}
+					case "float64":
+						value, e = strconv.ParseFloat(pathVal, 64)
+						if e != nil {
+							value = float64(0)
+						}
+					case "string":
+						value = pathVal
+					}
+
+					params = append(params, methodParam{
+						Name:      mp.Name,
+						Type:      mp.Type,
+						ParamKind: mp.ParamKind,
+						ParamType: mp.ParamType,
+						IsStruct:  mp.IsStruct,
+						Value:     value,
+					})
+
+					break
+				}
+			}
+
+			if !found {
+				params = append(params, methodParam{
+					Name:        mp.Name,
+					Type:        mp.Type,
+					ParamKind:   mp.ParamKind,
+					ParamType:   mp.ParamType,
+					IsStruct:    mp.IsStruct,
+					Value:       nil,
+					StructValue: mp.StructValue,
+				})
+			}
+		}
+	}
+
 	return
 }
 
 func (this *router) parseHost(r *http.Request) string {
 	reg := regexp.MustCompile(`^(?i:\d+\.\d+\.\d+\.\d+|localhost)(:\d+)?$`)
 	if reg.MatchString(r.Host) {
-		return "www.example.com"
+		return "www.test.cn"
 	}
 	return r.Host
 }
@@ -253,6 +265,9 @@ type methodParam struct {
 	StructValue reflect.Value
 }
 
+// --------------------------------------------------------------------------------
+// Router
+// --------------------------------------------------------------------------------
 type Router struct {
 	Path           string
 	Pathlen        int
@@ -296,6 +311,9 @@ func (r Router) GetRouter(method string, controller string, action string) (Rout
 	return Router{}, fmt.Errorf("no router %s to %s:%s", method, controller, action)
 }
 
+// --------------------------------------------------------------------------------
+// RouteRegister
+// --------------------------------------------------------------------------------
 type routeNamespace struct {
 	subdomain string
 	routers   []*Router
