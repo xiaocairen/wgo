@@ -79,7 +79,31 @@ type Service struct {
 	err    error
 }
 
-func (s *Service) NewService(config *mdb.DBConfig) *Service {
+func (s *Service) NewService() *Service {
+	c, e := s.db.GetConn()
+	return &Service{
+		db:     s.db,
+		conn:   c,
+		tx:     nil,
+		in:     false,
+		tables: s.tables,
+		err:    e,
+	}
+}
+
+func (s *Service) NewServiceByHostname(hostDbame string) *Service {
+	c, e := s.db.GetConnByName(hostDbame)
+	return &Service{
+		db:     s.db,
+		conn:   c,
+		tx:     nil,
+		in:     false,
+		tables: s.tables,
+		err:    e,
+	}
+}
+
+func (s *Service) NewConnService(config *mdb.DBConfig) *Service {
 	c, e := s.db.NewConn(config)
 	return &Service{
 		db:     s.db,
