@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"unicode"
 	"unsafe"
 )
 
@@ -100,6 +101,48 @@ func Underline2Camel(underline string) string {
 	}
 
 	return string(camel[:i])
+}
+
+func SnakeToCamel(underStr string, bigCamel bool) string {
+	var (
+		res []rune
+		tmp = []rune(underStr)
+		num = len(tmp)
+	)
+	for k := 0; k < num; k++ {
+		if tmp[k] == '_' {
+			if k < num-1 {
+				res = append(res, unicode.ToUpper(tmp[k+1]))
+			}
+			k++
+		} else {
+			res = append(res, tmp[k])
+		}
+	}
+
+	if bigCamel {
+		res[0] = unicode.ToUpper(res[0])
+	}
+
+	return string(res)
+}
+
+func CamelToSnake(camelStr string) string {
+	var (
+		res []rune
+		tmp = []rune(camelStr)
+	)
+	for k, r := range tmp {
+		if unicode.IsUpper(r) {
+			if k > 0 {
+				res = append(res, '_')
+			}
+			res = append(res, unicode.ToLower(r))
+		} else {
+			res = append(res, r)
+		}
+	}
+	return string(res)
 }
 
 func deepFields(rtype reflect.Type) (fields []reflect.StructField) {
