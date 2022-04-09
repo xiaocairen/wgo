@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -100,7 +99,17 @@ func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (ro
 	for key, route := range routeIt.routers {
 		if route.Path == req.URL.Path {
 			router = *route
-			params = route.MethodParams
+			for _, mp := range route.MethodParams {
+				params = append(params, methodParam{
+					Name:        mp.Name,
+					Type:        mp.Type,
+					ParamKind:   mp.ParamKind,
+					ParamType:   mp.ParamType,
+					IsStruct:    mp.IsStruct,
+					Value:       nil,
+					StructValue: mp.StructValue,
+				})
+			}
 			return
 		}
 
@@ -154,44 +163,13 @@ func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (ro
 			for k, pp := range router.PathParams {
 				if mp.Name == pp {
 					found = true
-
-					var (
-						value   interface{}
-						e       error
-						pathVal = parameters[k]
-					)
-					switch mp.Type {
-					case "int":
-						value, e = strconv.Atoi(pathVal)
-						if e != nil {
-							value = 0
-						}
-					case "int64":
-						value, e = strconv.ParseInt(pathVal, 10, 64)
-						if e != nil {
-							value = int64(0)
-						}
-					case "uint64":
-						value, e = strconv.ParseUint(pathVal, 10, 64)
-						if e != nil {
-							value = uint64(0)
-						}
-					case "float64":
-						value, e = strconv.ParseFloat(pathVal, 64)
-						if e != nil {
-							value = float64(0)
-						}
-					case "string":
-						value = pathVal
-					}
-
 					params = append(params, methodParam{
 						Name:      mp.Name,
 						Type:      mp.Type,
 						ParamKind: mp.ParamKind,
 						ParamType: mp.ParamType,
 						IsStruct:  mp.IsStruct,
-						Value:     value,
+						Value:     convertParam2Value(parameters[k], mp.Type),
 					})
 
 					break
@@ -209,6 +187,18 @@ func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (ro
 					StructValue: mp.StructValue,
 				})
 			}
+		}
+	} else {
+		for _, mp := range router.MethodParams {
+			params = append(params, methodParam{
+				Name:        mp.Name,
+				Type:        mp.Type,
+				ParamKind:   mp.ParamKind,
+				ParamType:   mp.ParamType,
+				IsStruct:    mp.IsStruct,
+				Value:       nil,
+				StructValue: mp.StructValue,
+			})
 		}
 	}
 

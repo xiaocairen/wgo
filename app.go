@@ -51,7 +51,7 @@ func init() {
 		if err != nil {
 			log.Panic(err)
 		}
-		if err := os.Chdir(path); err != nil {
+		if err = os.Chdir(path); err != nil {
 			log.Panic("unable to change working dir " + err.Error())
 		}
 
@@ -60,7 +60,7 @@ func init() {
 			websocketHandlers: make(map[string]WebsocketHandler),
 		}
 
-		if err := appinst.configurator.GetBool("debug", &appinst.debug); err != nil {
+		if err = appinst.configurator.GetBool("debug", &appinst.debug); err != nil {
 			log.Panic(err)
 		}
 
@@ -104,7 +104,7 @@ func GetApp() *app {
 func (this *app) Run() {
 	oncerun.Do(func() {
 		this.router = &router{RouteCollection: this.routeCollection}
-		s := &server{app: this, Configurator: this.configurator, Router: this.router}
+		var s = &server{app: this, Configurator: this.configurator, Router: this.router}
 		this.router.init([]RouteControllerInjector{s})
 
 		this.servicer.Registe(this.tableCollection)
@@ -131,7 +131,7 @@ func (this *app) Run() {
 
 		mux.Handle("/", s)
 
-		var server = &http.Server{
+		var httpServer = &http.Server{
 			Addr:              host + ":" + strconv.Itoa(port),
 			Handler:           mux,
 			TLSConfig:         nil,
@@ -141,7 +141,7 @@ func (this *app) Run() {
 			IdleTimeout:       0,
 			MaxHeaderBytes:    1 << 20,
 		}
-		if e := server.ListenAndServe(); e != nil {
+		if e := httpServer.ListenAndServe(); e != nil {
 			log.Fatal(e)
 		}
 	})

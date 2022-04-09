@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"reflect"
 	"runtime/debug"
+	"strconv"
 	"strings"
 )
 
@@ -52,7 +53,7 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		iface.InjectRequestController(route, cve, svc)
 	}
 
-	this.convertBodyToParams(req, params)
+	this.parseRequestParam(req, params)
 
 	if nil == route.interceptor {
 		this.render(w, cv, route, params)
@@ -78,20 +79,98 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (this *server) convertBodyToParams(r *HttpRequest, params []methodParam) {
-	if (r.Request.Method == POST || r.Request.Method == PUT) && strings.Contains(r.GetHeader("content-type"), "application/json") {
-		var body = r.Body()
-		if len(body) > 0 {
-			for k, p := range params {
-				if p.IsStruct {
+func (this *server) parseRequestParam(r *HttpRequest, params []methodParam) {
+	switch r.Request.Method {
+	case GET, DELETE:
+		for k, p := range params {
+			if p.IsStruct {
+				var qmap = make(map[string]interface{})
+				for i := 0; i < p.ParamType.NumField(); i++ {
+					var (
+						pt      = p.ParamType.Field(i)
+						name    = pt.Name
+						tagJson = pt.Tag.Get("json")
+					)
+					if "" != tagJson {
+						name = tagJson
+					}
+
+					qmap[name] = convertParam2Value(r.Get(name), pt.Type.Name())
+				}
+
+				if tmp, e := json.Marshal(qmap); e == nil {
 					val := reflect.New(p.ParamType)
-					tmp := val.Interface()
-					json.Unmarshal(body, tmp)
+					ifa := val.Interface()
+					json.Unmarshal(tmp, ifa)
+
 					if p.ParamKind == reflect.Ptr {
 						params[k].StructValue = val
 					} else {
 						params[k].StructValue = val.Elem()
 					}
+				}
+
+			} else if nil == p.Value {
+				params[k].Value = convertParam2Value(r.Get(p.Name), p.Type)
+			}
+		}
+	case POST, PUT, PATCH:
+		var (
+			body        = r.Body()
+			contentType = r.GetHeader("Content-Type")
+		)
+		if strings.Contains(contentType, "application/json") {
+			for k, p := range params {
+				if p.IsStruct {
+					val := reflect.New(p.ParamType)
+					ifa := val.Interface()
+					json.Unmarshal(body, ifa)
+					if p.ParamKind == reflect.Ptr {
+						params[k].StructValue = val
+					} else {
+						params[k].StructValue = val.Elem()
+					}
+				} else if nil == p.Value {
+					params[k].Value = convertParam2Value(r.GetPost(p.Name), p.Type)
+				}
+			}
+		} else if strings.Contains(contentType, "application/x-www-form-urlencoded") {
+			for k, p := range params {
+				if p.IsStruct {
+					var qmap = make(map[string]interface{})
+					for i := 0; i < p.ParamType.NumField(); i++ {
+						var (
+							pt      = p.ParamType.Field(i)
+							name    = pt.Name
+							tagJson = pt.Tag.Get("json")
+						)
+						if "" != tagJson {
+							name = tagJson
+						}
+
+						qmap[name] = convertParam2Value(r.GetPost(name), pt.Type.Name())
+					}
+
+					if tmp, e := json.Marshal(qmap); e == nil {
+						var (
+							val = reflect.New(p.ParamType)
+							ifa = val.Interface()
+						)
+						json.Unmarshal(tmp, ifa)
+						if p.ParamKind == reflect.Ptr {
+							params[k].StructValue = val
+						} else {
+							params[k].StructValue = val.Elem()
+						}
+					}
+				} else if nil == p.Value {
+					params[k].Value = convertParam2Value(r.GetRequest(p.Name), p.Type)
+				}
+			}
+		} else {
+			for k, p := range params {
+				if !p.IsStruct && nil == p.Value {
+					params[k].Value = convertParam2Value(r.GetRequest(p.Name), p.Type)
 				}
 			}
 		}
@@ -301,6 +380,38 @@ func (this *server) assigTemplate(objt reflect.Type, objv reflect.Value, name st
 		log.Panicf("Template of %s can't be assignableTo", name)
 	}
 	dst.Set(src)
+}
+
+func convertParam2Value(value string, typ string) interface{} {
+	var (
+		val interface{}
+		e   error
+	)
+	switch typ {
+	case "int":
+		val, e = strconv.Atoi(value)
+		if e != nil {
+			val = 0
+		}
+	case "int64":
+		val, e = strconv.ParseInt(value, 10, 64)
+		if e != nil {
+			val = int64(0)
+		}
+	case "uint64":
+		val, e = strconv.ParseUint(value, 10, 64)
+		if e != nil {
+			val = uint64(0)
+		}
+	case "float64":
+		val, e = strconv.ParseFloat(value, 64)
+		if e != nil {
+			val = float64(0)
+		}
+	case "string":
+		val = value
+	}
+	return val
 }
 
 type RequestControllerInjector interface {
