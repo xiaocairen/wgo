@@ -533,12 +533,22 @@ func parseRouteAction(action string) (name string, params [][]string) {
 		for _, p := range arr {
 			p = strings.TrimSpace(p)
 			tmp := strings.Split(p, " ")
-			if 2 != len(tmp) {
+			switch len(tmp) {
+			case 1:
+				tmp[0] = strings.TrimSpace(tmp[0])
+				params = append(params, tmp)
+			case 2:
+				tmp[0] = strings.TrimSpace(tmp[0])
+				tmp[1] = strings.TrimSpace(tmp[1])
+				for k, t := range params {
+					if 1 == len(t) {
+						params[k] = append(params[k], tmp[1])
+					}
+				}
+				params = append(params, tmp)
+			default:
 				log.Panicf("illegal route action '%s'", action)
 			}
-			tmp[0] = strings.TrimSpace(tmp[0])
-			tmp[1] = strings.TrimSpace(tmp[1])
-			params = append(params, tmp)
 		}
 	}
 	return
