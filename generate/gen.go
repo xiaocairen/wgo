@@ -704,9 +704,9 @@ type encryptor struct {
 
 func NewEncryptor(key []byte) *encryptor {
 	if len(key) < 7 {
-		return &encryptor{key: []byte("wgo^2022_schwblm")}
+		return &encryptor{key: []byte("wgo-2022_abc1234")}
 	}
-	return &encryptor{key: append([]byte("wgo@2022_"), key[0:7]...)}
+	return &encryptor{key: append([]byte("wgo-2022_"), key[0:7]...)}
 }
 
 func (enc *encryptor) Encode(data []byte) string {
