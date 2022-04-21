@@ -750,7 +750,7 @@ type password struct {
 
 func NewPassword(key []byte) *password {
 	if len(key) == 0 {
-		return &password{key: []byte("wgo^1980_schwblm")}
+		return &password{key: []byte("wgo^2020_abc1234")}
 	}
 
 	return &password{key: key}
