@@ -12,7 +12,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func Gen() {
+func Run() {
 	if len(os.Args) < 3 {
 		return
 	}
@@ -29,13 +29,15 @@ func Gen() {
 
 func NewTtableGenerater() *tableGenerater {
 	var (
-		user   = GetCmdOption("user", "root")
-		pass   = GetCmdOption("pass", "")
-		host   = GetCmdOption("host", "localhost")
-		port   = GetCmdOption("port", "3306")
-		dbname = GetCmdOption("db", "root")
-		tag    = GetCmdOption("tag", "mdb")
-		table  = GetCmdOption("table", "")
+		user     = GetCmdOption("user", "root")
+		pass     = GetCmdOption("pass", "")
+		host     = GetCmdOption("host", "localhost")
+		port     = GetCmdOption("port", "3306")
+		dbname   = GetCmdOption("db", "")
+		tag      = GetCmdOption("tag", "mdb")
+		table    = GetCmdOption("table", "")
+		jsonType = GetCmdOption("jsonType", "0") // 0 同数据库字段名(小写加下划线) 1小写开头驼峰 2大写开头驼峰
+		yamlType = GetCmdOption("yamlType", "0")
 	)
 
 	db, e := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", user, pass, host, port, dbname))
@@ -47,16 +49,20 @@ func NewTtableGenerater() *tableGenerater {
 	}
 
 	return &tableGenerater{
-		db:    db,
-		tag:   tag,
-		table: table,
+		db:       db,
+		tag:      tag,
+		table:    table,
+		jsonType: jsonType,
+		yamlType: yamlType,
 	}
 }
 
 type tableGenerater struct {
-	db    *sql.DB
-	tag   string
-	table string
+	db       *sql.DB
+	tag      string
+	table    string
+	jsonType string
+	yamlType string
 }
 
 func (this *tableGenerater) genTable() {
@@ -193,10 +199,31 @@ func (this *tableGenerater) genField(table, field, typ, null, key string, def in
 		}
 	}
 
+	var (
+		jsonName string
+		yamlName string
+	)
+	switch this.jsonType {
+	case "1":
+		jsonName = tool.ToFirstLower(fs.Name)
+	case "2":
+		jsonName = tool.ToFirstUpper(fs.Name)
+	default:
+		jsonName = field
+	}
+	switch this.yamlType {
+	case "1":
+		yamlName = tool.ToFirstLower(fs.Name)
+	case "2":
+		yamlName = tool.ToFirstUpper(fs.Name)
+	default:
+		yamlName = field
+	}
+
 	if "PRI" == key {
-		fs.Tag = fmt.Sprintf("`json:\"%s\" yaml:\"%s\" %s:\"%s\" pk:\"yes\"`", field, field, this.tag, field)
+		fs.Tag = fmt.Sprintf("`json:\"%s\" yaml:\"%s\" %s:\"%s\" pk:\"yes\"`", jsonName, yamlName, this.tag, field)
 	} else {
-		fs.Tag = fmt.Sprintf("`json:\"%s\" yaml:\"%s\" %s:\"%s\"`", field, field, this.tag, field)
+		fs.Tag = fmt.Sprintf("`json:\"%s\" yaml:\"%s\" %s:\"%s\"`", jsonName, yamlName, this.tag, field)
 	}
 
 	fs.NameLen = len(fs.Name)

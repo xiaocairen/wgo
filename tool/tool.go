@@ -56,6 +56,28 @@ func RandomInt(min int, max int) int {
 	return min + rand.Intn(max-min)
 }
 
+func ToFirstLower(s string) string {
+	if "" == s {
+		return ""
+	}
+
+	if unicode.IsUpper(rune(s[0])) {
+		return strings.ToLower(s[:1]) + s[1:]
+	}
+	return s
+}
+
+func ToFirstUpper(s string) string {
+	if "" == s {
+		return ""
+	}
+
+	if unicode.IsLower(rune(s[0])) {
+		return strings.ToUpper(s[:1]) + s[1:]
+	}
+	return s
+}
+
 func Camel2Underline(camel string) string {
 	var under = make([]rune, 128)
 	var i = 0
