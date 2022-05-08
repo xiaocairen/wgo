@@ -381,7 +381,7 @@ func (dc *Conn) Delete(sql msql.Delete) *modifyQuery {
 	}
 }
 
-func (dc *Conn) Exec(query string, args ...interface{}) (sql.Result, error) {
+func (dc *Conn) Exec(query string, args ...any) (sql.Result, error) {
 	return dc.wdb.db.Exec(query, args...)
 }
 
@@ -402,12 +402,12 @@ func (dc *Conn) Prepare(query string) *dbStmt {
 	return &dbStmt{stmt: stmt, lerr: err}
 }
 
-func (dc *Conn) Query(query string, args ...interface{}) *Rows {
+func (dc *Conn) Query(query string, args ...any) *Rows {
 	rows, err := dc.rdb.db.Query(query, args...)
 	return &Rows{rows: rows, lerr: err}
 }
 
-func (dc *Conn) QueryRow(query string, args ...interface{}) *Row {
+func (dc *Conn) QueryRow(query string, args ...any) *Row {
 	rows, err := dc.rdb.db.Query(query, args...)
 	return &Row{rows: &Rows{rows: rows, lerr: err}}
 }
@@ -432,14 +432,14 @@ func (s *dbStmt) Close() error {
 	return s.stmt.Close()
 }
 
-func (s *dbStmt) Exec(args ...interface{}) (sql.Result, error) {
+func (s *dbStmt) Exec(args ...any) (sql.Result, error) {
 	if s.lerr != nil {
 		return nil, s.lerr
 	}
 	return s.stmt.Exec(args...)
 }
 
-func (s *dbStmt) Query(args ...interface{}) *Rows {
+func (s *dbStmt) Query(args ...any) *Rows {
 	if s.lerr != nil {
 		return &Rows{lerr: s.lerr}
 	}
@@ -448,7 +448,7 @@ func (s *dbStmt) Query(args ...interface{}) *Rows {
 	return &Rows{rows: rows, lerr: err}
 }
 
-func (s *dbStmt) QueryRow(args ...interface{}) *Row {
+func (s *dbStmt) QueryRow(args ...any) *Row {
 	if s.lerr != nil {
 		return &Row{rows: &Rows{lerr: s.lerr}}
 	}
@@ -461,7 +461,7 @@ type Row struct {
 	rows *Rows
 }
 
-func (r *Row) Scan(dest ...interface{}) error {
+func (r *Row) Scan(dest ...any) error {
 	if r.rows.rows != nil {
 		defer r.rows.rows.Close()
 	}
@@ -479,7 +479,7 @@ func (r *Row) Scan(dest ...interface{}) error {
 	return r.rows.rows.Scan(dest...)
 }
 
-func (r *Row) ScanStruct(out interface{}) error {
+func (r *Row) ScanStruct(out any) error {
 	if r.rows.rows != nil {
 		defer r.rows.rows.Close()
 	}
@@ -544,7 +544,7 @@ func (r *Rows) ColumnTypes() ([]*sql.ColumnType, error) {
 	return r.rows.ColumnTypes()
 }
 
-func (r *Rows) Scan(dest ...interface{}) error {
+func (r *Rows) Scan(dest ...any) error {
 	if r.lerr != nil {
 		if r.rows != nil {
 			r.rows.Close()
@@ -554,7 +554,7 @@ func (r *Rows) Scan(dest ...interface{}) error {
 	return r.rows.Scan(dest...)
 }
 
-func (r *Rows) ScanStruct(out interface{}) error {
+func (r *Rows) ScanStruct(out any) error {
 	if r.lerr != nil {
 		if r.rows != nil {
 			r.rows.Close()
@@ -613,7 +613,7 @@ func (r *Rows) ScanStruct(out interface{}) error {
 	return r.scanStruct(ote, ove, coltype, fields)
 }
 
-func (r *Rows) ScanStructAll(in interface{}) ([]interface{}, error) {
+func (r *Rows) ScanStructAll(in any) ([]any, error) {
 	if r.lerr != nil {
 		if r.rows != nil {
 			r.rows.Close()
@@ -665,7 +665,7 @@ func (r *Rows) ScanStructAll(in interface{}) ([]interface{}, error) {
 		}
 	}
 
-	var out = make([]interface{}, 0)
+	var out = make([]any, 0)
 	for r.rows.Next() {
 		tmp := reflect.New(ote).Interface()
 		ote := reflect.TypeOf(tmp).Elem()
@@ -682,7 +682,7 @@ func (r *Rows) ScanStructAll(in interface{}) ([]interface{}, error) {
 }
 
 func (r *Rows) scanStruct(ote reflect.Type, ove reflect.Value, coltype []*sql.ColumnType, fields []*reflect.StructField) error {
-	var values = make([]interface{}, len(coltype))
+	var values = make([]any, len(coltype))
 	for k, ct := range coltype {
 		switch ct.ScanType().Kind() {
 		case reflect.Uint:
@@ -776,15 +776,15 @@ func (dt *Tx) Prepare(query string) *dbStmt {
 	return &dbStmt{stmt: stmt, lerr: err}
 }
 
-func (dt *Tx) Exec(query string, args ...interface{}) (sql.Result, error) {
+func (dt *Tx) Exec(query string, args ...any) (sql.Result, error) {
 	return dt.tx.Exec(query, args...)
 }
 
-func (dt *Tx) Query(query string, args ...interface{}) (*sql.Rows, error) {
+func (dt *Tx) Query(query string, args ...any) (*sql.Rows, error) {
 	return dt.tx.Query(query, args...)
 }
 
-func (dt *Tx) QueryRow(query string, args ...interface{}) *sql.Row {
+func (dt *Tx) QueryRow(query string, args ...any) *sql.Row {
 	return dt.tx.QueryRow(query, args...)
 }
 
@@ -830,7 +830,7 @@ const (
 	UINT64_MAX = 18446744073709551615
 )
 
-func fillStruct(ote reflect.Type, ove reflect.Value, field *reflect.StructField, value interface{}) {
+func fillStruct(ote reflect.Type, ove reflect.Value, field *reflect.StructField, value any) {
 	org := ove.FieldByName(field.Name)
 	val := reflect.ValueOf(value).Elem()
 	orgType := org.Type()

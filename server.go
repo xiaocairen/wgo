@@ -84,7 +84,7 @@ func (this *server) parseRequestParam(r *HttpRequest, params []methodParam) {
 	case GET, DELETE:
 		for k, p := range params {
 			if p.IsStruct {
-				var qmap = make(map[string]interface{})
+				var qmap = make(map[string]any)
 				for i := 0; i < p.ParamType.NumField(); i++ {
 					var (
 						pt      = p.ParamType.Field(i)
@@ -137,7 +137,7 @@ func (this *server) parseRequestParam(r *HttpRequest, params []methodParam) {
 		} else if strings.Contains(contentType, "application/x-www-form-urlencoded") {
 			for k, p := range params {
 				if p.IsStruct {
-					var qmap = make(map[string]interface{})
+					var qmap = make(map[string]any)
 					for i := 0; i < p.ParamType.NumField(); i++ {
 						var (
 							pt      = p.ParamType.Field(i)
@@ -286,14 +286,14 @@ func (this *server) finally(res http.ResponseWriter, req *http.Request) {
 		msg = fmt.Sprintf("%s", e)
 	}
 
-	b, _ := json.Marshal(map[string]interface{}{
+	b, _ := json.Marshal(map[string]any{
 		"code": -1,
 		"msg":  msg,
 	})
 	res.Write(b)
 }
 
-func (this *server) InjectRouteController(controller interface{}) {
+func (this *server) InjectRouteController(controller any) {
 	var (
 		objt = reflect.TypeOf(controller).Elem()
 		objv = reflect.ValueOf(controller).Elem()
@@ -382,9 +382,9 @@ func (this *server) assigTemplate(objt reflect.Type, objv reflect.Value, name st
 	dst.Set(src)
 }
 
-func convertParam2Value(value string, typ string) interface{} {
+func convertParam2Value(value string, typ string) any {
 	var (
-		val interface{}
+		val any
 		e   error
 	)
 	switch typ {

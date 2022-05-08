@@ -16,7 +16,7 @@ type WgoController struct {
 	Service      *service.Service
 	Request      *HttpRequest
 	Response     *HttpResponse
-	ShareData    []map[string]interface{}
+	ShareData    []map[string]any
 }
 
 func (this *WgoController) GetCookie(name string) string {
@@ -44,7 +44,7 @@ func (this *WgoController) AppendBody(body []byte) *WgoController {
 	return this
 }
 
-func (this *WgoController) AddShare(data map[string]interface{}) {
+func (this *WgoController) AddShare(data map[string]any) {
 	this.ShareData = append(this.ShareData, data)
 }
 
@@ -52,16 +52,16 @@ func (this *WgoController) Render(body []byte) []byte {
 	return this.Response.Send(body)
 }
 
-func (this *WgoController) RenderJson(body interface{}) []byte {
+func (this *WgoController) RenderJson(body any) []byte {
 	this.Response.SetHeader("content-type", "application/json")
 	return this.Response.SendJson(body)
 }
 
-func (this *WgoController) RenderHtml(filename string, data interface{}) (string, interface{}) {
+func (this *WgoController) RenderHtml(filename string, data any) (string, any) {
 	return filename, mergeShareDatas(data, this.ShareData)
 }
 
-func (this *WgoController) RenderHtmlStr(htmlStr string, data interface{}) (*template.Template, interface{}) {
+func (this *WgoController) RenderHtmlStr(htmlStr string, data any) (*template.Template, any) {
 	name := tool.MD5([]byte(htmlStr))
 	t := this.Template.Lookup(name)
 	if nil == t {
@@ -75,18 +75,18 @@ func (this *WgoController) RenderHtmlStr(htmlStr string, data interface{}) (*tem
 	}
 }
 
-func (this *WgoController) Success(body interface{}) (json []byte) {
+func (this *WgoController) Success(body any) (json []byte) {
 	json = this.RenderJson(struct {
-		Code int         `json:"code"`
-		Data interface{} `json:"data,omitempty"`
+		Code int `json:"code"`
+		Data any `json:"data,omitempty"`
 	}{Code: 0, Data: body})
 	return
 }
-func (this *WgoController) SuccessExtra(body interface{}, extra interface{}) (json []byte) {
+func (this *WgoController) SuccessExtra(body any, extra any) (json []byte) {
 	json = this.RenderJson(struct {
-		Code  int        `json:"code"`
-		Data  interface{} `json:"data,omitempty"`
-		Extra interface{} `json:"extra,omitempty"`
+		Code  int `json:"code"`
+		Data  any `json:"data,omitempty"`
+		Extra any `json:"extra,omitempty"`
 	}{Code: 0, Data: body, Extra: extra})
 	return
 }
@@ -99,18 +99,18 @@ func (this *WgoController) Failure(code int, msg string) (json []byte) {
 	return
 }
 
-func (this *WgoController) FailureExtra(code int, msg string, extra interface{}) (json []byte) {
+func (this *WgoController) FailureExtra(code int, msg string, extra any) (json []byte) {
 	json = this.RenderJson(struct {
-		Code  int         `json:"code"`
-		Msg   string      `json:"msg,omitempty"`
-		Extra interface{} `json:"extra,omitempty"`
+		Code  int    `json:"code"`
+		Msg   string `json:"msg,omitempty"`
+		Extra any    `json:"extra,omitempty"`
 	}{Code: code, Msg: msg, Extra: extra})
 	return
 }
 
 func (this *WgoController) Redirect(url string, code int) []byte {
 	switch code {
-	case 201,301,302,303,307,308:
+	case 201, 301, 302, 303, 307, 308:
 	default:
 		code = 301
 	}
@@ -118,7 +118,7 @@ func (this *WgoController) Redirect(url string, code int) []byte {
 	return this.Render([]byte(""))
 }
 
-func mergeShareDatas(dst interface{}, datas []map[string]interface{}) interface{} {
+func mergeShareDatas(dst any, datas []map[string]any) any {
 	n := len(datas)
 	if n == 0 {
 		return dst
@@ -137,7 +137,7 @@ func mergeShareDatas(dst interface{}, datas []map[string]interface{}) interface{
 		return datas[0]
 	}
 
-	si, ok := dst.(map[string]interface{})
+	si, ok := dst.(map[string]any)
 	if !ok {
 		return dst
 	}

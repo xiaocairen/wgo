@@ -17,4 +17,3 @@ func Control(network, address string, c syscall.RawConn) (err error) {
 	//}
 	return
 }
-

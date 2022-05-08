@@ -7,7 +7,7 @@ import (
 
 type SqlStatement struct {
 	Sql    string
-	Params []interface{}
+	Params []any
 	Err    error
 }
 
@@ -29,7 +29,7 @@ func (r Select) Build() SqlStatement {
 		having  string
 		orderBy string
 		limit   string
-		params  []interface{}
+		params  []any
 	)
 
 	if nil != r.Where {
@@ -79,7 +79,7 @@ func (r Select) BuildCountQuery() SqlStatement {
 		where   string
 		groupBy string
 		having  string
-		params  []interface{}
+		params  []any
 	)
 
 	if nil != r.Where {
@@ -110,7 +110,7 @@ func (r Select) BuildCountQuery() SqlStatement {
 
 type Insert struct {
 	Into       string
-	FieldValue map[string]interface{}
+	FieldValue map[string]any
 	OnDKUpdate map[string]string
 }
 
@@ -119,7 +119,7 @@ func (c Insert) Build() SqlStatement {
 		sql    string
 		set    []string
 		dku    []string
-		params []interface{}
+		params []any
 	)
 	for k, v := range c.FieldValue {
 		set = append(set, k+"=?")
@@ -145,7 +145,7 @@ func (c Insert) Build() SqlStatement {
 
 type Update struct {
 	Table     Table
-	SetValues map[string]interface{}
+	SetValues map[string]any
 	Where     *WhereCondition
 	OrderBy   []string
 	Limit     uint64
@@ -155,7 +155,7 @@ func (u Update) Build() SqlStatement {
 	var (
 		set     []string
 		where   string
-		params  []interface{}
+		params  []any
 		orderBy string
 		limit   string
 	)
@@ -201,7 +201,7 @@ func (d Delete) Build() SqlStatement {
 	var (
 		using   string
 		where   string
-		params  []interface{}
+		params  []any
 		orderBy string
 		limit   string
 	)
@@ -294,21 +294,21 @@ func (lj LeftJoin) String() string {
 
 type WhereCondition struct {
 	where string
-	param []interface{}
+	param []any
 	err   error
 }
 
-func Where(field string, opr string, value interface{}) *WhereCondition {
+func Where(field string, opr string, value any) *WhereCondition {
 	return &WhereCondition{
 		where: fmt.Sprintf("%s %s ?", field, opr),
-		param: []interface{}{value},
+		param: []any{value},
 	}
 }
 
-func Having(field string, opr string, value interface{}) *WhereCondition {
+func Having(field string, opr string, value any) *WhereCondition {
 	return &WhereCondition{
 		where: fmt.Sprintf("%s %s ?", field, opr),
-		param: []interface{}{value},
+		param: []any{value},
 	}
 }
 
@@ -316,11 +316,11 @@ func Having(field string, opr string, value interface{}) *WhereCondition {
 // use:  And("name", "=", "wb", "age", ">", "18")
 //       And("age", ">", "18", Or("name", "=", "wb", "name", "=", "lm"))
 //       And("city", "=", "zz", "age", ">", "18", In("name", []interface{}{"wb", "lm"}))
-func And(and ...interface{}) *WhereCondition {
+func And(and ...any) *WhereCondition {
 	var (
 		err   error
 		where []string
-		param []interface{}
+		param []any
 		n     = len(and)
 	)
 	if 0 == n {
@@ -355,11 +355,11 @@ func And(and ...interface{}) *WhereCondition {
 
 // where or []interface{}.
 // usage see And()
-func Or(or ...interface{}) *WhereCondition {
+func Or(or ...any) *WhereCondition {
 	var (
 		err   error
 		where []string
-		param []interface{}
+		param []any
 		n     = len(or)
 	)
 	if 0 == n {
@@ -394,7 +394,7 @@ func Or(or ...interface{}) *WhereCondition {
 	}
 }
 
-func In(field string, values []interface{}) *WhereCondition {
+func In(field string, values []any) *WhereCondition {
 	n := len(values)
 	if n == 1 {
 		return &WhereCondition{
@@ -413,7 +413,7 @@ func In(field string, values []interface{}) *WhereCondition {
 	}
 }
 
-func NotIn(field string, values []interface{}) *WhereCondition {
+func NotIn(field string, values []any) *WhereCondition {
 	n := len(values)
 	if n == 1 {
 		return &WhereCondition{
@@ -432,17 +432,17 @@ func NotIn(field string, values []interface{}) *WhereCondition {
 	}
 }
 
-func Between(field string, start interface{}, end interface{}) *WhereCondition {
+func Between(field string, start any, end any) *WhereCondition {
 	return &WhereCondition{
 		where: fmt.Sprintf("%s BETWEEN ? AND ?", field),
-		param: []interface{}{start, end},
+		param: []any{start, end},
 	}
 }
 
-func NotBetween(field string, start interface{}, end interface{}) *WhereCondition {
+func NotBetween(field string, start any, end any) *WhereCondition {
 	return &WhereCondition{
 		where: fmt.Sprintf("%s NOT BETWEEN ? AND ?", field),
-		param: []interface{}{start, end},
+		param: []any{start, end},
 	}
 }
 

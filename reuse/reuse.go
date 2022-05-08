@@ -56,4 +56,3 @@ func ResolveAddr(network, address string) (net.Addr, error) {
 		return nil, net.UnknownNetworkError(network)
 	}
 }
-
