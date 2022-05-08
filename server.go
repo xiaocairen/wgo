@@ -120,6 +120,8 @@ func (this *server) parseRequestParam(r *HttpRequest, params []methodParam) {
 			contentType = r.GetHeader("Content-Type")
 		)
 		if strings.Contains(contentType, "application/json") {
+			var m = make(map[string]any)
+			json.Unmarshal(body, &m)
 			for k, p := range params {
 				if p.IsStruct {
 					val := reflect.New(p.ParamType)
@@ -130,8 +132,8 @@ func (this *server) parseRequestParam(r *HttpRequest, params []methodParam) {
 					} else {
 						params[k].StructValue = val.Elem()
 					}
-				} else if nil == p.Value {
-					params[k].Value = convertParam2Value(r.GetPost(p.Name), p.Type)
+				} else if nil == p.Value && nil != m[p.Name] {
+					params[k].Value = convertAny2Value(m[p.Name], p.Type)
 				}
 			}
 		} else if strings.Contains(contentType, "application/x-www-form-urlencoded") {
@@ -409,6 +411,81 @@ func convertParam2Value(value string, typ string) any {
 			val = float64(0)
 		}
 	case "string":
+		val = value
+	}
+	return val
+}
+
+func convertAny2Value(value any, typ string) any {
+	var (
+		val any
+		e   error
+	)
+	switch typ {
+	case "int":
+		v, ok := value.(int)
+		if ok {
+			val = v
+		} else {
+			s, yes := value.(string)
+			if yes {
+				if val, e = strconv.Atoi(s); e != nil {
+					val = 0
+				}
+			} else {
+				val = 0
+			}
+		}
+	case "int64":
+		v, ok := value.(int64)
+		if ok {
+			val = v
+		} else {
+			s, yes := value.(string)
+			if yes {
+				if val, e = strconv.ParseInt(s, 10, 64); e != nil {
+					val = int64(0)
+				}
+			} else {
+				val = int64(0)
+			}
+		}
+	case "uint64":
+		v, ok := value.(uint64)
+		if ok {
+			val = v
+		} else {
+			s, yes := value.(string)
+			if yes {
+				if val, e = strconv.ParseUint(s, 10, 64); e != nil {
+					val = uint64(0)
+				}
+			} else {
+				val = uint64(0)
+			}
+		}
+	case "float64":
+		v, ok := value.(float64)
+		if ok {
+			val = v
+		} else {
+			s, yes := value.(string)
+			if yes {
+				if val, e = strconv.ParseFloat(s, 64); e != nil {
+					val = float64(0)
+				}
+			} else {
+				val = float64(0)
+			}
+		}
+	case "string":
+		v, ok := value.(string)
+		if ok {
+			val = v
+		} else {
+			val = ""
+		}
+	default:
 		val = value
 	}
 	return val
