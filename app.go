@@ -26,7 +26,7 @@ var (
 
 type WebsocketHandler func(w http.ResponseWriter, r *http.Request, c *config.Configurator, s *service.Service)
 type Tasker func(c *config.Configurator, s *service.Service)
-type Finally func(w http.ResponseWriter, r *http.Request)
+type Finally func(w *HttpResponse, r *HttpRequest)
 
 type app struct {
 	debug                        bool

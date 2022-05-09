@@ -23,10 +23,14 @@ type server struct {
 
 func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
+
+	req := &HttpRequest{Request: r}
+	res := &HttpResponse{Writer: w}
+	req.init()
 	if nil == this.app.finally {
-		defer this.finally(w, r)
+		defer this.finally(res, req)
 	} else {
-		defer this.app.finally(w, r)
+		defer this.app.finally(res, req)
 	}
 
 	route, params, notfound := this.Router.getHandler(r)
@@ -35,10 +39,7 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	svc := this.app.servicer.New()
-	req := &HttpRequest{Request: r}
-	res := &HttpResponse{Writer: w}
-	req.init()
+	var svc = this.app.servicer.New()
 
 	controller := tool.StructCopy(route.Controller)
 	cv := reflect.ValueOf(controller)
@@ -256,8 +257,8 @@ func (this *server) render(w http.ResponseWriter, cv reflect.Value, router Route
 	}
 }
 
-func (this *server) finally(res http.ResponseWriter, req *http.Request) {
-	e := recover()
+func (this *server) finally(res *HttpResponse, req *HttpRequest) {
+	var e = recover()
 	if e == nil {
 		return
 	}
@@ -274,7 +275,7 @@ func (this *server) finally(res http.ResponseWriter, req *http.Request) {
 		}
 
 		if key < 2 {
-			res.Write(tool.String2Bytes(fmt.Sprintf("%s\n\n%s", e, debug.Stack())))
+			res.Writer.Write(tool.String2Bytes(fmt.Sprintf("%s\n\n%s", e, debug.Stack())))
 			return
 		}
 
@@ -288,11 +289,12 @@ func (this *server) finally(res http.ResponseWriter, req *http.Request) {
 		msg = fmt.Sprintf("%s", e)
 	}
 
-	b, _ := json.Marshal(map[string]any{
-		"code": -1,
-		"msg":  msg,
-	})
-	res.Write(b)
+	var code = -1
+	if res.statusCode > 0 {
+		code = res.statusCode
+	}
+	b, _ := json.Marshal(map[string]any{"code": code, "msg": msg})
+	res.Writer.Write(b)
 }
 
 func (this *server) InjectRouteController(controller any) {

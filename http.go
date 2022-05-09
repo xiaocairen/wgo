@@ -226,8 +226,9 @@ func (r *HttpRequest) IsAjax() bool {
 // use HttpResponse.Append([]byte("hello world")).send()
 // or HttpResponse.send([]byte("hello world"))
 type HttpResponse struct {
-	Writer http.ResponseWriter
-	Body   [][]byte
+	Writer     http.ResponseWriter
+	Body       [][]byte
+	statusCode int
 }
 
 func (r *HttpResponse) SetCookie(name, value, path string, maxAge int, secure, httpOnly bool) {
@@ -293,5 +294,6 @@ func (r *HttpResponse) SetHeader(key string, value string) {
 }
 
 func (r *HttpResponse) WriteHeader(statusCode int) {
+	r.statusCode = statusCode
 	r.Writer.WriteHeader(statusCode)
 }
