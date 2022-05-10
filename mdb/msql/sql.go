@@ -466,6 +466,22 @@ func OrderBy(oby ...string) []string {
 	return oby
 }
 
+func OrderByAsc(oby ...string) []string {
+	var rs []string
+	for _, s := range oby {
+		rs = append(rs, s+" ASC")
+	}
+	return rs
+}
+
+func OrderByDesc(oby ...string) []string {
+	var rs []string
+	for _, s := range oby {
+		rs = append(rs, s+" DESC")
+	}
+	return rs
+}
+
 func Limit(count uint64) []uint64 {
 	return []uint64{count}
 }
