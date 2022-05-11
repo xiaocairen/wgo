@@ -450,12 +450,24 @@ func Fields(f ...string) []string {
 	return f
 }
 
+func From(table string, as string, joins []Join, leftJoins []LeftJoin) Table {
+	return Table{Table: table, As: as, Join: joins, LeftJoin: leftJoins}
+}
+
 func Joins(j ...Join) []Join {
 	return j
 }
 
 func LeftJoins(lj ...LeftJoin) []LeftJoin {
 	return lj
+}
+
+func InnerJoin(table, as, on string) Join {
+	return Join{Table: table, As: as, On: on}
+}
+
+func LeftInnerJoin(table, as, on string) LeftJoin {
+	return LeftJoin{Table: table, As: as, On: on}
 }
 
 func GroupBy(gby ...string) []string {
