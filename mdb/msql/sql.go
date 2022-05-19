@@ -462,14 +462,6 @@ func LeftJoins(lj ...LeftJoin) []LeftJoin {
 	return lj
 }
 
-func InnerJoin(table, as, on string) Join {
-	return Join{Table: table, As: as, On: on}
-}
-
-func LeftInnerJoin(table, as, on string) LeftJoin {
-	return LeftJoin{Table: table, As: as, On: on}
-}
-
 func GroupBy(gby ...string) []string {
 	return gby
 }

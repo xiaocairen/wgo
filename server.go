@@ -268,6 +268,7 @@ func (this *server) finally(res *HttpResponse, req *HttpRequest) {
 		stacks := strings.Split(string(debug.Stack()), "\n")
 		var key int
 		for k, s := range stacks {
+			fmt.Printf("%d: %s\n", k, s)
 			if strings.Contains(s, "reflect.Value.call") {
 				key = k - 1
 				break
