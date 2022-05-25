@@ -82,7 +82,7 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (this *server) parseRequestParam(r *HttpRequest, params []methodParam) {
 	switch r.Request.Method {
-	case GET, DELETE:
+	case GET:
 		for k, p := range params {
 			if p.IsStruct {
 				var qmap = make(map[string]any)
@@ -113,6 +113,108 @@ func (this *server) parseRequestParam(r *HttpRequest, params []methodParam) {
 
 			} else if nil == p.Value {
 				params[k].Value = convertParam2Value(r.Get(p.Name), p.Type)
+			}
+		}
+	case DELETE:
+		var (
+			body        = r.Body()
+			contentType = r.GetHeader("Content-Type")
+		)
+		if 0 == len(body) {
+			for k, p := range params {
+				if p.IsStruct {
+					var qmap = make(map[string]any)
+					for i := 0; i < p.ParamType.NumField(); i++ {
+						var (
+							pt      = p.ParamType.Field(i)
+							name    = pt.Name
+							tagJson = pt.Tag.Get("json")
+						)
+						if "" != tagJson {
+							name = tagJson
+						}
+
+						qmap[name] = convertParam2Value(r.Get(name), pt.Type.Name())
+					}
+
+					if tmp, e := json.Marshal(qmap); e == nil {
+						val := reflect.New(p.ParamType)
+						ifa := val.Interface()
+						json.Unmarshal(tmp, ifa)
+
+						if p.ParamKind == reflect.Ptr {
+							params[k].StructValue = val
+						} else {
+							params[k].StructValue = val.Elem()
+						}
+					}
+
+				} else if nil == p.Value {
+					params[k].Value = convertParam2Value(r.Get(p.Name), p.Type)
+				}
+			}
+		} else {
+			if strings.Contains(contentType, "application/json") {
+				var m = make(map[string]any)
+				json.Unmarshal(body, &m)
+				for k, p := range params {
+					if p.IsStruct {
+						val := reflect.New(p.ParamType)
+						ifa := val.Interface()
+						json.Unmarshal(body, ifa)
+						if p.ParamKind == reflect.Ptr {
+							params[k].StructValue = val
+						} else {
+							params[k].StructValue = val.Elem()
+						}
+					} else if nil == p.Value {
+						var queryVal = r.Get(p.Name)
+						if "" != queryVal {
+							params[k].Value = convertParam2Value(queryVal, p.Type)
+						} else if nil != m[p.Name] {
+							params[k].Value = convertAny2Value(m[p.Name], p.Type)
+						}
+					}
+				}
+			} else if strings.Contains(contentType, "application/x-www-form-urlencoded") {
+				for k, p := range params {
+					if p.IsStruct {
+						var qmap = make(map[string]any)
+						for i := 0; i < p.ParamType.NumField(); i++ {
+							var (
+								pt      = p.ParamType.Field(i)
+								name    = pt.Name
+								tagJson = pt.Tag.Get("json")
+							)
+							if "" != tagJson {
+								name = tagJson
+							}
+
+							qmap[name] = convertParam2Value(r.GetPost(name), pt.Type.Name())
+						}
+
+						if tmp, e := json.Marshal(qmap); e == nil {
+							var (
+								val = reflect.New(p.ParamType)
+								ifa = val.Interface()
+							)
+							json.Unmarshal(tmp, ifa)
+							if p.ParamKind == reflect.Ptr {
+								params[k].StructValue = val
+							} else {
+								params[k].StructValue = val.Elem()
+							}
+						}
+					} else if nil == p.Value {
+						params[k].Value = convertParam2Value(r.GetRequest(p.Name), p.Type)
+					}
+				}
+			} else {
+				for k, p := range params {
+					if !p.IsStruct && nil == p.Value {
+						params[k].Value = convertParam2Value(r.GetRequest(p.Name), p.Type)
+					}
+				}
 			}
 		}
 	case POST, PUT, PATCH:
