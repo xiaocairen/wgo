@@ -218,12 +218,12 @@ func (this *server) parseRequestParam(r *HttpRequest, params []methodParam) {
 			}
 		}
 	case POST, PUT, PATCH:
-		var (
-			body        = r.Body()
-			contentType = r.GetHeader("Content-Type")
-		)
+		var contentType = r.GetHeader("Content-Type")
 		if strings.Contains(contentType, "application/json") {
-			var m = make(map[string]any)
+			var (
+				m    = make(map[string]any)
+				body = r.Body()
+			)
 			json.Unmarshal(body, &m)
 			for k, p := range params {
 				if p.IsStruct {
