@@ -302,14 +302,46 @@ func (s *svc) CreateMulti(data []map[string]any) (num int64, err error) {
 		fields = append(fields, k)
 		placeholder = append(placeholder, "?")
 	}
-	query := fmt.Sprintf("INSERT INTO `%s` (`%s`) VALUES (%s)", s.table.tableName, strings.Join(fields, "`, `"), strings.Join(placeholder, ", "))
+	query := fmt.Sprintf("INSERT INTO `%s` (`%s`) VALUES ", s.table.tableName, strings.Join(fields, "`, `"))
+
+	var allValues = make([]string, num)
+	for k, m := range data {
+		var (
+			holder []string
+			values []any
+		)
+		for _, f := range fields {
+			var val = m[f]
+			if sv, yes := val.(string); yes {
+				values = append(values, strings.ReplaceAll(strings.ReplaceAll(sv, "\\", "\\\\"), "'", "\\'"))
+			} else {
+				values = append(values, m[f])
+			}
+			holder = append(holder, "'%v'")
+		}
+
+		allValues[k] = fmt.Sprintf("("+strings.Join(holder, ",")+")", values...)
+	}
+
+	query = query + strings.Join(allValues, ",")
 
 	if s.service.in {
+		_, err = s.service.tx.Exec(query)
+	} else {
+		_, err = s.conn.Exec(query)
+	}
+	if err != nil {
+		return 0, err
+	}
+	return
+
+	/*if s.service.in {
 		stmt := s.service.tx.Prepare(query)
+		var values []string
 		for _, m := range data {
-			var values []any
+			var vals []any
 			for _, f := range fields {
-				values = append(values, m[f])
+				vals = append(vals, m[f])
 			}
 
 			if _, err = stmt.Exec(values...); err != nil {
@@ -331,9 +363,7 @@ func (s *svc) CreateMulti(data []map[string]any) (num int64, err error) {
 			}
 		}
 		tx.Commit()
-	}
-
-	return
+	}*/
 }
 
 func (s *svc) Update() (int64, error) {
