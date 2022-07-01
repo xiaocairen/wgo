@@ -607,6 +607,8 @@ func parseRouteController(controller any, action string, actParams [][]string, p
 			if actPt[tlen-len(name):] != name {
 				log.Panicf("type of param[%d] of method '%s:%s' mismatch router", i, rtc.String(), action)
 			}
+		} else if ("any" == actPt || "interface{}" == actPt) && "interface {}" == fmt.Sprintf("%s", pt) {
+			continue
 		} else if pt.Name() != actPt {
 			log.Panicf("type of param[%d] of method '%s:%s' mismatch router", i, rtc.String(), action)
 		}
