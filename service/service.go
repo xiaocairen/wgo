@@ -297,14 +297,14 @@ func (s *svc) CreateMulti(data []map[string]any) (num int64, err error) {
 	}
 
 	var fields []string
-	var placeholder []string
 	for k, _ := range data[0] {
 		fields = append(fields, k)
-		placeholder = append(placeholder, "?")
 	}
-	query := fmt.Sprintf("INSERT INTO `%s` (`%s`) VALUES ", s.table.tableName, strings.Join(fields, "`, `"))
 
-	var allValues = make([]string, num)
+	var (
+		query     = fmt.Sprintf("INSERT INTO `%s` (`%s`) VALUES ", s.table.tableName, strings.Join(fields, "`, `"))
+		allValues = make([]string, num)
+	)
 	for k, m := range data {
 		var (
 			holder []string
@@ -364,6 +364,65 @@ func (s *svc) CreateMulti(data []map[string]any) (num int64, err error) {
 		}
 		tx.Commit()
 	}*/
+}
+
+func (s *svc) CreateMultiOnDupkey(data []map[string]any, dupkey map[string]string) (num int64, err error) {
+	if s.newErr != nil {
+		err = s.newErr
+		return
+	}
+
+	num = int64(len(data))
+	if nil == data || 0 == num {
+		err = fmt.Errorf("param data of CreateMulti() is empty")
+		return
+	}
+
+	var fields []string
+	for k, _ := range data[0] {
+		fields = append(fields, k)
+	}
+
+	var (
+		query     = fmt.Sprintf("INSERT INTO `%s` (`%s`) VALUES ", s.table.tableName, strings.Join(fields, "`, `"))
+		allValues = make([]string, num)
+	)
+	for k, m := range data {
+		var (
+			holder []string
+			values []any
+		)
+		for _, f := range fields {
+			var val = m[f]
+			if sv, yes := val.(string); yes {
+				values = append(values, strings.ReplaceAll(strings.ReplaceAll(sv, "\\", "\\\\"), "'", "\\'"))
+			} else {
+				values = append(values, m[f])
+			}
+			holder = append(holder, "'%v'")
+		}
+
+		allValues[k] = fmt.Sprintf("("+strings.Join(holder, ",")+")", values...)
+	}
+	query = query + strings.Join(allValues, ",")
+
+	if nil != dupkey {
+		var udk []string
+		for k, v := range dupkey {
+			udk = append(udk, fmt.Sprintf("%s=%s", k, strings.ReplaceAll(strings.ReplaceAll(v, "\\", "\\\\"), "'", "\\'")))
+		}
+		query = query + fmt.Sprintf(" ON DUPLICATE KEY UPDATE %s", strings.Join(udk, ","))
+	}
+
+	if s.service.in {
+		_, err = s.service.tx.Exec(query)
+	} else {
+		_, err = s.conn.Exec(query)
+	}
+	if err != nil {
+		return 0, err
+	}
+	return
 }
 
 func (s *svc) Update() (int64, error) {
