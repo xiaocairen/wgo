@@ -171,7 +171,7 @@ func (this *server) parseRequestParam(r *HttpRequest, params []methodParam) {
 						var queryVal = r.Get(p.Name)
 						if "" != queryVal {
 							params[k].Value = convertParam2Value(queryVal, p.Type)
-						} else if nil != m[p.Name] {
+						} else {
 							params[k].Value = convertAny2Value(m[p.Name], p.Type)
 						}
 					}
@@ -235,7 +235,7 @@ func (this *server) parseRequestParam(r *HttpRequest, params []methodParam) {
 					} else {
 						params[k].StructValue = val.Elem()
 					}
-				} else if nil == p.Value && nil != m[p.Name] {
+				} else if nil == p.Value {
 					params[k].Value = convertAny2Value(m[p.Name], p.Type)
 				}
 			}
@@ -517,20 +517,41 @@ func convertParam2Value(value string, typ string) any {
 		}
 	case "string":
 		val = value
+	case "bool":
+		val, e = strconv.ParseBool(value)
+		if e != nil {
+			val = false
+		}
 	}
 	return val
 }
 
 func convertAny2Value(value any, typ string) any {
+	if nil == value {
+		switch typ {
+		case "int":
+			return 0
+		case "int64":
+			return int64(0)
+		case "uint64":
+			return uint64(0)
+		case "float64":
+			return float64(0)
+		case "string":
+			return ""
+		default:
+			return nil
+		}
+	}
 	var (
 		val any
 		e   error
 	)
 	switch typ {
 	case "int":
-		v, ok := value.(int)
+		v, ok := value.(float64)
 		if ok {
-			val = v
+			val = int(v)
 		} else {
 			s, yes := value.(string)
 			if yes {
@@ -542,9 +563,9 @@ func convertAny2Value(value any, typ string) any {
 			}
 		}
 	case "int64":
-		v, ok := value.(int64)
+		v, ok := value.(float64)
 		if ok {
-			val = v
+			val = int64(v)
 		} else {
 			s, yes := value.(string)
 			if yes {
@@ -556,9 +577,9 @@ func convertAny2Value(value any, typ string) any {
 			}
 		}
 	case "uint64":
-		v, ok := value.(uint64)
+		v, ok := value.(float64)
 		if ok {
-			val = v
+			val = uint64(v)
 		} else {
 			s, yes := value.(string)
 			if yes {
