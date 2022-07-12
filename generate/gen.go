@@ -690,14 +690,13 @@ func (this *projectGenerater) genProjectUtilFile() error {
 
 import (
 	"bytes"
-	"crypto/hmac"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/nfnt/resize"
-	"github.com/satori/go.uuid"
 	"github.com/xiaocairen/wgo/tool"
+	"golang.org/x/crypto/bcrypt"
 	"image"
 	"image/gif"
 	"image/jpeg"
@@ -722,7 +721,7 @@ const (
 )
 
 var (
-	LOCATION    = time.FixedZone("CST", 8*3600)
+	LOCATION = time.FixedZone("CST", 8*3600)
 )
 
 type encryptor struct {
@@ -731,9 +730,9 @@ type encryptor struct {
 
 func NewEncryptor(key []byte) *encryptor {
 	if len(key) < 7 {
-		return &encryptor{key: []byte("wgo-2022_abc1234")}
+		return &encryptor{key: []byte("wgo^2099_abc1234")}
 	}
-	return &encryptor{key: append([]byte("wgo-2022_"), key[0:7]...)}
+	return &encryptor{key: append([]byte("wgo!2099_"), key[0:7]...)}
 }
 
 func (enc *encryptor) Encode(data []byte) string {
@@ -772,12 +771,32 @@ func (enc *encryptor) UrlDecode(data string) ([]byte, error) {
 }
 
 type password struct {
+	defCost int
+}
+
+func NewPassword() *password {
+	return &password{defCost: 10}
+}
+
+func (enc *password) EncodePassword(password []byte) string {
+	resBytes, _ := bcrypt.GenerateFromPassword(password, enc.defCost)
+	return string(resBytes)
+}
+
+func (enc *password) VerifyPassword(password []byte, cryptedPass string) bool {
+	if e := bcrypt.CompareHashAndPassword([]byte(cryptedPass), password); e != nil {
+		return false
+	}
+	return true
+}
+
+/*type password struct {
 	key []byte
 }
 
 func NewPassword(key []byte) *password {
 	if len(key) == 0 {
-		return &password{key: []byte("wgo^2020_abc1234")}
+		return &password{key: []byte("wgo^2099_abc1234")}
 	}
 
 	return &password{key: key}
@@ -795,18 +814,26 @@ func (enc *password) VerifyPassword(password []byte, cryptedPass string) bool {
 	target := h.Sum(nil)
 	src, _ := base64.RawURLEncoding.DecodeString(cryptedPass)
 	return hmac.Equal(src, target)
-}
+}*/
 
 func CreateUUID(name string) string {
-	var ns = uuid.NewV4()
+	var ns = uuid.New()
 	if name == "" {
 		return strings.Replace(ns.String(), "-", "", 4)
 	}
-	return strings.Replace(uuid.NewV5(ns, name).String(), "-", "", 4)
+	return strings.Replace(uuid.NewSHA1(ns, []byte(name)).String(), "-", "", 4)
 }
 
 func IsDuplicateError(e error) bool {
 	return -1 != strings.Index(e.Error(), "Error 1062: Duplicate entry")
+}
+
+func IsMobilePhone(phone string) bool {
+	var yes bool
+	if len(phone) == 11 && phone[0] == 49 {
+		yes = true
+	}
+	return yes
 }
 
 func DateFormat(sec int64, layout string) string {
@@ -927,7 +954,7 @@ func CreateSN(prefix string) string {
 		rand.Intn(99))
 }
 
-func CreateJSONBody(data any, escapeHtml bool) (string, error) {
+func CreateJSONBody(data interface{}, escapeHtml bool) (string, error) {
 	var (
 		buf = bytes.NewBuffer([]byte{})
 		enc = json.NewEncoder(buf)
@@ -945,31 +972,59 @@ func ContainString(ss []string, s string) bool {
 		sort.Strings(ss)
 	}
 
-	pos := sort.SearchStrings(ss, s)
-	if pos == len(ss) {
-		return false
-	}
+	return InSortedString(ss, s)
+}
 
-	if ss[pos] != s {
+func InSortedString(sortedStr []string, s string) bool {
+	var pos = sort.SearchStrings(sortedStr, s)
+	if pos == len(sortedStr) || sortedStr[pos] != s {
 		return false
 	}
 	return true
 }
 
-func ContainInt(is []int, i int) bool {
+func ContainInt(is []int, x int) bool {
 	if !sort.IntsAreSorted(is) {
 		sort.Ints(is)
 	}
 
-	pos := sort.SearchInts(is, i)
-	if pos == len(is) {
-		return false
-	}
+	return InSortedInts(is, x)
+}
 
-	if is[pos] != i {
+func InSortedInts(sortedInts []int, x int) bool {
+	var pos = sort.SearchInts(sortedInts, x)
+	if pos == len(sortedInts) || sortedInts[pos] != x {
 		return false
 	}
 	return true
+}
+
+func DiffIntSlice(newIds, oldIds []int64) (n_ids, d_ids []int64) {
+	for _, newId := range newIds {
+		var f bool
+		for _, oldId := range oldIds {
+			if oldId == newId {
+				f = true
+				break
+			}
+		}
+		if !f {
+			n_ids = append(n_ids, newId)
+		}
+	}
+	for _, oldId := range oldIds {
+		var f bool
+		for _, newId := range newIds {
+			if oldId == newId {
+				f = true
+				break
+			}
+		}
+		if !f {
+			d_ids = append(d_ids, oldId)
+		}
+	}
+	return
 }
 
 func Descartes(src [][]string) [][]string {
