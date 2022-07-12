@@ -180,7 +180,7 @@ func deepFields(rtype reflect.Type) (fields []reflect.StructField) {
 }
 
 // in must be a ptr to struct, or will panic
-func StructCopy(in any) (out any) {
+func StructCopy(in interface{}) (out interface{}) {
 	srcT := reflect.TypeOf(in).Elem()
 	out = reflect.New(srcT).Interface()
 	srcV := reflect.ValueOf(in).Elem()
@@ -213,7 +213,7 @@ func StructCopy(in any) (out any) {
 	return
 }
 
-func StructFill(in *map[string]any, out any) error {
+func StructFill(in *map[string]interface{}, out interface{}) error {
 	outt := reflect.TypeOf(out)
 	outte := outt.Elem()
 	if outt.Kind() != reflect.Ptr || outte.Kind() != reflect.Struct {
@@ -235,7 +235,7 @@ func StructFill(in *map[string]any, out any) error {
 	return nil
 }
 
-func fillStruct(outType reflect.Type, outValue reflect.Value, name string, value any) error {
+func fillStruct(outType reflect.Type, outValue reflect.Value, name string, value interface{}) error {
 	var field reflect.StructField
 	if _, found := outType.FieldByName(name); !found {
 		for i := 0; i < outType.NumField(); i++ {

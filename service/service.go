@@ -23,7 +23,7 @@ var (
 )
 
 type table struct {
-	target       any
+	target       interface{}
 	targetType   reflect.Type
 	structName   string
 	structFields []reflect.StructField
@@ -169,7 +169,7 @@ func (s *Service) Rollback() error {
 
 // only LoadPaginator has param selection and call LoadPageTarget,
 // the target can be nil; otherwise target must be ptr to struct.
-func (s *Service) New(target any) *svc {
+func (s *Service) New(target interface{}) *svc {
 	if s.err != nil {
 		return &svc{newErr: s.err}
 	}
@@ -196,7 +196,7 @@ func (s *Service) New(target any) *svc {
 	}
 }
 
-func (s *Service) loadTableByTarget(target any) (*table, reflect.Type, error) {
+func (s *Service) loadTableByTarget(target interface{}) (*table, reflect.Type, error) {
 	var (
 		targetType = reflect.TypeOf(target)
 		structName = targetType.String()
@@ -222,7 +222,7 @@ type svc struct {
 	conn       *mdb.Conn
 	service    *Service
 	table      *table
-	target     any
+	target     interface{}
 	targetType reflect.Type
 	newErr     error
 }
@@ -284,7 +284,7 @@ func (s *svc) CreateOnDupkey(dupkey map[string]string) error {
 	return nil
 }
 
-func (s *svc) CreateMulti(data []map[string]any) (num int64, err error) {
+func (s *svc) CreateMulti(data []map[string]interface{}) (num int64, err error) {
 	if s.newErr != nil {
 		err = s.newErr
 		return
@@ -308,7 +308,7 @@ func (s *svc) CreateMulti(data []map[string]any) (num int64, err error) {
 	for k, m := range data {
 		var (
 			holder []string
-			values []any
+			values []interface{}
 		)
 		for _, f := range fields {
 			var val = m[f]
@@ -366,7 +366,7 @@ func (s *svc) CreateMulti(data []map[string]any) (num int64, err error) {
 	}*/
 }
 
-func (s *svc) CreateMultiOnDupkey(data []map[string]any, dupkey map[string]string) (num int64, err error) {
+func (s *svc) CreateMultiOnDupkey(data []map[string]interface{}, dupkey map[string]string) (num int64, err error) {
 	if s.newErr != nil {
 		err = s.newErr
 		return
@@ -390,7 +390,7 @@ func (s *svc) CreateMultiOnDupkey(data []map[string]any, dupkey map[string]strin
 	for k, m := range data {
 		var (
 			holder []string
-			values []any
+			values []interface{}
 		)
 		for _, f := range fields {
 			var val = m[f]
@@ -452,7 +452,7 @@ func (s *svc) Update() (int64, error) {
 	return res.RowsAffected()
 }
 
-func (s *svc) UpdateByPrimaryKey(value any, data map[string]any) (int64, error) {
+func (s *svc) UpdateByPrimaryKey(value interface{}, data map[string]interface{}) (int64, error) {
 	if s.newErr != nil {
 		return 0, s.newErr
 	}
@@ -478,7 +478,7 @@ func (s *svc) UpdateByPrimaryKey(value any, data map[string]any) (int64, error) 
 	return res.RowsAffected()
 }
 
-func (s *svc) UpdateByPrimaryKeys(values []any, data map[string]any) (int64, error) {
+func (s *svc) UpdateByPrimaryKeys(values []interface{}, data map[string]interface{}) (int64, error) {
 	if s.newErr != nil {
 		return 0, s.newErr
 	}
@@ -504,7 +504,7 @@ func (s *svc) UpdateByPrimaryKeys(values []any, data map[string]any) (int64, err
 	return res.RowsAffected()
 }
 
-func (s *svc) UpdateByField(field string, value any, data map[string]any) (int64, error) {
+func (s *svc) UpdateByField(field string, value interface{}, data map[string]interface{}) (int64, error) {
 	if s.newErr != nil {
 		return 0, s.newErr
 	}
@@ -530,7 +530,7 @@ func (s *svc) UpdateByField(field string, value any, data map[string]any) (int64
 	return res.RowsAffected()
 }
 
-func (s *svc) UpdateByWhere(where *msql.WhereCondition, data map[string]any) (int64, error) {
+func (s *svc) UpdateByWhere(where *msql.WhereCondition, data map[string]interface{}) (int64, error) {
 	if s.newErr != nil {
 		return 0, s.newErr
 	}
@@ -581,7 +581,7 @@ func (s *svc) Delete() (int64, error) {
 	return res.RowsAffected()
 }
 
-func (s *svc) DeleteByPrimaryKey(value any) (int64, error) {
+func (s *svc) DeleteByPrimaryKey(value interface{}) (int64, error) {
 	if s.newErr != nil {
 		return 0, s.newErr
 	}
@@ -606,7 +606,7 @@ func (s *svc) DeleteByPrimaryKey(value any) (int64, error) {
 	return res.RowsAffected()
 }
 
-func (s *svc) DeleteByPrimaryKeys(values []any) (int64, error) {
+func (s *svc) DeleteByPrimaryKeys(values []interface{}) (int64, error) {
 	if s.newErr != nil {
 		return 0, s.newErr
 	}
@@ -631,7 +631,7 @@ func (s *svc) DeleteByPrimaryKeys(values []any) (int64, error) {
 	return res.RowsAffected()
 }
 
-func (s *svc) DeleteByField(field string, value any) (int64, error) {
+func (s *svc) DeleteByField(field string, value interface{}) (int64, error) {
 	if s.newErr != nil {
 		return 0, s.newErr
 	}
@@ -712,7 +712,7 @@ func (s *svc) Has(where *msql.WhereCondition, groupBy []string) (bool, error) {
 	return false, nil
 }
 
-func (s *svc) Load(primaryVal any, with ...string) error {
+func (s *svc) Load(primaryVal interface{}, with ...string) error {
 	if s.newErr != nil {
 		return s.newErr
 	}
@@ -748,7 +748,7 @@ func (s *svc) LoadOne(where *msql.WhereCondition, orderBy []string, with ...stri
 	return s.loadWith(with...)
 }
 
-func (s *svc) LoadTarget(target any, primaryVal any, with ...string) error {
+func (s *svc) LoadTarget(target interface{}, primaryVal interface{}, with ...string) error {
 	if s.newErr != nil {
 		return s.newErr
 	}
@@ -770,7 +770,7 @@ func (s *svc) LoadTarget(target any, primaryVal any, with ...string) error {
 	return s.loadTargetWith(target, with...)
 }
 
-func (s *svc) LoadOneTarget(target any, where *msql.WhereCondition, orderBy []string, with ...string) error {
+func (s *svc) LoadOneTarget(target interface{}, where *msql.WhereCondition, orderBy []string, with ...string) error {
 	if s.newErr != nil {
 		return s.newErr
 	}
@@ -892,7 +892,7 @@ func (s *svc) loadWith(with ...string) error {
 	return nil
 }
 
-func (s *svc) loadTargetWith(target any, with ...string) error {
+func (s *svc) loadTargetWith(target interface{}, with ...string) error {
 	if len(with) == 0 {
 		return nil
 	}
@@ -1009,7 +1009,7 @@ func (s *svc) loadTargetWith(target any, with ...string) error {
 // param where use func msql.Where, msql.And, msql.Or, msql.In, msql.NotIn,
 // msql.Between, msql.NotBetween to generate.
 // or use nil mean no WhereCondition
-func (s *svc) LoadAll(where *msql.WhereCondition, orderBy []string) ([]any, error) {
+func (s *svc) LoadAll(where *msql.WhereCondition, orderBy []string) ([]interface{}, error) {
 	if s.newErr != nil {
 		return nil, s.newErr
 	}
@@ -1029,7 +1029,7 @@ func (s *svc) LoadAll(where *msql.WhereCondition, orderBy []string) ([]any, erro
 // param where use func msql.Where, msql.And, msql.Or, msql.In, msql.NotIn,
 // msql.Between, msql.NotBetween to generate.
 // or use nil mean no WhereCondition
-func (s *svc) LoadList(where *msql.WhereCondition, orderBy []string, limit, offset uint64) ([]any, error) {
+func (s *svc) LoadList(where *msql.WhereCondition, orderBy []string, limit, offset uint64) ([]interface{}, error) {
 	if s.newErr != nil {
 		return nil, s.newErr
 	}
@@ -1117,7 +1117,7 @@ func (s *svc) GetPrimaryKey() string {
 	return s.table.primaryKey
 }
 
-func (s *svc) GetPrimaryVal() any {
+func (s *svc) GetPrimaryVal() interface{} {
 	return reflect.ValueOf(s.target).Elem().FieldByName(s.table.primaryField.Name).Interface()
 }
 
@@ -1129,8 +1129,8 @@ func (s *svc) GetTableFields() []string {
 	return s.table.tableFields
 }
 
-func (s *svc) getFieldValues() (fieldValues map[string]any, targetValue reflect.Value, primaryValue int64) {
-	fieldValues = make(map[string]any)
+func (s *svc) getFieldValues() (fieldValues map[string]interface{}, targetValue reflect.Value, primaryValue int64) {
+	fieldValues = make(map[string]interface{})
 	targetValue = reflect.ValueOf(s.target).Elem()
 	for i := 0; i < s.targetType.NumField(); i++ {
 		tt := s.targetType.Field(i)
@@ -1147,7 +1147,7 @@ func (s *svc) getFieldValues() (fieldValues map[string]any, targetValue reflect.
 	return
 }
 
-func (s *svc) getTargetMdbFields(target any) (fields []string, err error) {
+func (s *svc) getTargetMdbFields(target interface{}) (fields []string, err error) {
 	t := reflect.TypeOf(target)
 	if t.Kind() != reflect.Ptr {
 		err = fmt.Errorf("target '%s' must be ptr to struct", t.String())

@@ -20,13 +20,13 @@ type TableRegister struct {
 	svcer *Servicer
 }
 
-func (sr *TableRegister) RegisteTables(tables []any) {
+func (sr *TableRegister) RegisteTables(tables []interface{}) {
 	for _, t := range tables {
 		sr.svcer.tables = append(sr.svcer.tables, sr.registe(t))
 	}
 }
 
-func (tr *TableRegister) registe(target any) *table {
+func (tr *TableRegister) registe(target interface{}) *table {
 	t := reflect.TypeOf(target)
 	if t.Kind() != reflect.Ptr {
 		panic(fmt.Sprintf("service '%s' must be ptr to struct", t.String()))

@@ -246,7 +246,7 @@ type methodParam struct {
 	ParamKind   reflect.Kind
 	ParamType   reflect.Type
 	IsStruct    bool
-	Value       any
+	Value       interface{}
 	StructValue reflect.Value
 }
 
@@ -260,7 +260,7 @@ type Router struct {
 	PathRegexp     *regexp.Regexp
 	PathParams     []string
 	pathParamsNum  int
-	Controller     any
+	Controller     interface{}
 	ControllerName string
 	Method         reflect.Method
 	MethodParams   []methodParam
@@ -336,7 +336,7 @@ func (this *RouteRegister) Registe(subdomain, namespace string, interceptor Rout
 
 type RouteUnit struct {
 	Path       string
-	Controller any
+	Controller interface{}
 	Action     string
 }
 
@@ -344,35 +344,35 @@ type routeHttpMethod struct {
 	uhm routeUnitHttpMethod
 }
 
-func (this routeHttpMethod) Get(p string, c any, a string) {
+func (this routeHttpMethod) Get(p string, c interface{}, a string) {
 	this.uhm.Get(RouteUnit{
 		Path:       p,
 		Controller: c,
 		Action:     a,
 	})
 }
-func (this routeHttpMethod) Post(p string, c any, a string) {
+func (this routeHttpMethod) Post(p string, c interface{}, a string) {
 	this.uhm.Post(RouteUnit{
 		Path:       p,
 		Controller: c,
 		Action:     a,
 	})
 }
-func (this routeHttpMethod) Put(p string, c any, a string) {
+func (this routeHttpMethod) Put(p string, c interface{}, a string) {
 	this.uhm.Put(RouteUnit{
 		Path:       p,
 		Controller: c,
 		Action:     a,
 	})
 }
-func (this routeHttpMethod) Delete(p string, c any, a string) {
+func (this routeHttpMethod) Delete(p string, c interface{}, a string) {
 	this.uhm.Delete(RouteUnit{
 		Path:       p,
 		Controller: c,
 		Action:     a,
 	})
 }
-func (this routeHttpMethod) Any(p string, c any, a string) {
+func (this routeHttpMethod) Any(p string, c interface{}, a string) {
 	this.uhm.Any(RouteUnit{
 		Path:       p,
 		Controller: c,
@@ -554,7 +554,7 @@ func parseRouteAction(action string) (name string, params [][]string) {
 	return
 }
 
-func parseRouteController(controller any, action string, actParams [][]string, pathParams []string, chain []RouteControllerInjector) (ctlName string, actionMethod reflect.Method, methodParams []methodParam, hasInit bool) {
+func parseRouteController(controller interface{}, action string, actParams [][]string, pathParams []string, chain []RouteControllerInjector) (ctlName string, actionMethod reflect.Method, methodParams []methodParam, hasInit bool) {
 	rtc := reflect.TypeOf(controller)
 	if rtc.Kind() != reflect.Ptr || rtc.Elem().Kind() != reflect.Struct {
 		log.Panicf("controller must be ptr point to struct")
@@ -652,7 +652,7 @@ func parseRouteController(controller any, action string, actParams [][]string, p
 }
 
 type RouteControllerInjector interface {
-	InjectRouteController(controller any)
+	InjectRouteController(controller interface{})
 }
 
 type RouteInterceptor interface {
@@ -668,11 +668,11 @@ const (
 )
 
 type HttpMethod interface {
-	Get(path string, controller any, action string)
-	Post(path string, controller any, action string)
-	Put(path string, controller any, action string)
-	Delete(path string, controller any, action string)
-	Any(path string, controller any, action string)
+	Get(path string, controller interface{}, action string)
+	Post(path string, controller interface{}, action string)
+	Put(path string, controller interface{}, action string)
+	Delete(path string, controller interface{}, action string)
+	Any(path string, controller interface{}, action string)
 }
 
 type UnitHttpMethod interface {

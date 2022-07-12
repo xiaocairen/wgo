@@ -124,7 +124,7 @@ type ` + structName + ` struct {
 			Type    string
 			Null    string
 			Key     string
-			Default any
+			Default interface{}
 			Extra   string
 		)
 
@@ -158,7 +158,7 @@ type fieldStruct struct {
 	TypeLen int
 }
 
-func (this *tableGenerater) genField(table, field, typ, null, key string, def any, extra string) *fieldStruct {
+func (this *tableGenerater) genField(table, field, typ, null, key string, def interface{}, extra string) *fieldStruct {
 	fs := &fieldStruct{}
 	fs.Name = tool.Underline2Camel(field)
 
@@ -529,7 +529,7 @@ import (
 func init() {
 	var (
 		useCache bool
-		lifes    = make(map[string]interface{})
+		lifes    = make(map[string]any)
 		lifeMap  = make(map[string]int64)
 		app      = wgo.GetApp()
 	)
@@ -579,11 +579,11 @@ func (this *Aggregate) LevelDB() *leveldb.WgoLevelDB {
 	return this.ldb
 }
 
-func (this *Aggregate) GetObjectFromLDB(dbname string, key int64, obj interface{}) error {
+func (this *Aggregate) GetObjectFromLDB(dbname string, key int64, obj any) error {
 	return this.ldb.GetDB(dbname).GetStruct([]byte(strconv.FormatInt(key, 10)), obj)
 }
 
-func (this *Aggregate) PutObjectIntoLDB(dbname string, key int64, obj interface{}) error {
+func (this *Aggregate) PutObjectIntoLDB(dbname string, key int64, obj any) error {
 	return this.ldb.GetDB(dbname).PutStruct([]byte(strconv.FormatInt(key, 10)), obj)
 }
 
@@ -634,7 +634,7 @@ func init() {
 
 func TableCollection(tr *service.TableRegister) {
 	// 注册数据库表
-	tr.RegisteTables([]interface{}{
+	tr.RegisteTables([]any{
 
 	})
 }
@@ -927,7 +927,7 @@ func CreateSN(prefix string) string {
 		rand.Intn(99))
 }
 
-func CreateJSONBody(data interface{}, escapeHtml bool) (string, error) {
+func CreateJSONBody(data any, escapeHtml bool) (string, error) {
 	var (
 		buf = bytes.NewBuffer([]byte{})
 		enc = json.NewEncoder(buf)
@@ -1271,7 +1271,7 @@ func (l *ldb) Get(key []byte) ([]byte, error) {
 	return l.getDataBytes(r)
 }
 
-func (l *ldb) GetStruct(key []byte, target interface{}) error {
+func (l *ldb) GetStruct(key []byte, target any) error {
 	if l.err != nil {
 		return l.err
 	}
@@ -1297,7 +1297,7 @@ func (l *ldb) Put(key, value []byte) error {
 	return l.db.Put(key, d, nil)
 }
 
-func (l *ldb) PutStruct(key []byte, target interface{}) error {
+func (l *ldb) PutStruct(key []byte, target any) error {
 	if l.err != nil {
 		return nil
 	}
