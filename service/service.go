@@ -686,14 +686,16 @@ func (s *svc) Count(where *msql.WhereCondition, groupBy []string) (int64, error)
 		return 0, s.newErr
 	}
 
-	var total int64
-	err := s.conn.Select(msql.Select{
-		Select:  msql.Fields("COUNT(*)"),
-		From:    msql.Table{Table: s.table.tableName},
-		Where:   where,
-		GroupBy: groupBy,
-	}).QueryRow().Scan(&total)
-	if nil != err {
+	var (
+		total     int64
+		selection = msql.Select{
+			Select:  msql.Fields("COUNT(*)"),
+			From:    msql.Table{Table: s.table.tableName},
+			Where:   where,
+			GroupBy: groupBy,
+		}
+	)
+	if err := s.conn.Select(selection).QueryRow().Scan(&total); nil != err {
 		return 0, err
 	}
 
@@ -701,15 +703,34 @@ func (s *svc) Count(where *msql.WhereCondition, groupBy []string) (int64, error)
 }
 
 func (s *svc) Has(where *msql.WhereCondition, groupBy []string) (bool, error) {
-	total, err := s.Count(where, groupBy)
-	if err != nil {
+	if total, err := s.Count(where, groupBy); err != nil {
 		return false, err
+	} else if total == 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (s *svc) HasByPrimary(primaryVal interface{}) (bool, error) {
+	if s.newErr != nil {
+		return false, s.newErr
 	}
 
-	if total > 0 {
-		return true, nil
+	var (
+		total     int64
+		selection = msql.Select{
+			Select: msql.Fields("COUNT(*)"),
+			From:   msql.Table{Table: s.table.tableName},
+			Where:  msql.Where(s.table.primaryKey, "=", primaryVal),
+		}
+	)
+	if err := s.conn.Select(selection).QueryRow().Scan(&total); nil != err {
+		return false, err
 	}
-	return false, nil
+	if total == 0 {
+		return false, nil
+	}
+	return true, nil
 }
 
 func (s *svc) Load(primaryVal interface{}, with ...string) error {
