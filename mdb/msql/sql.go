@@ -36,8 +36,8 @@ func (r Select) Build() SqlStatement {
 		if nil != r.Where.err {
 			return SqlStatement{Err: r.Where.err}
 		}
-		if len(r.Where.param) > 0 {
-			where = " WHERE " + r.Where.where
+		where = " WHERE " + r.Where.where
+		if nil != r.Where.param {
 			params = append(params, r.Where.param...)
 		}
 	}
@@ -51,9 +51,11 @@ func (r Select) Build() SqlStatement {
 	if len(r.GroupBy) > 0 {
 		groupBy = " GROUP BY " + strings.Join(r.GroupBy, ",")
 	}
-	if nil != r.Having && len(r.Having.param) > 0 {
+	if nil != r.Having {
 		having = " HAVING " + r.Having.where
-		params = append(params, r.Having.param...)
+		if nil != r.Having.param {
+			params = append(params, r.Having.param...)
+		}
 	}
 	if len(r.OrderBy) > 0 {
 		orderBy = " ORDER BY " + strings.Join(r.OrderBy, ",")
@@ -86,8 +88,8 @@ func (r Select) BuildCountQuery() SqlStatement {
 		if nil != r.Where.err {
 			return SqlStatement{Err: r.Where.err}
 		}
-		if len(r.Where.param) > 0 {
-			where = " WHERE " + r.Where.where
+		where = " WHERE " + r.Where.where
+		if nil != r.Where.param {
 			params = append(params, r.Where.param...)
 		}
 	}
@@ -95,9 +97,11 @@ func (r Select) BuildCountQuery() SqlStatement {
 	if len(r.GroupBy) > 0 {
 		groupBy = " GROUP BY " + strings.Join(r.GroupBy, ",")
 	}
-	if nil != r.Having && len(r.Having.param) > 0 {
+	if nil != r.Having {
 		having = " HAVING " + r.Having.where
-		params = append(params, r.Having.param...)
+		if nil != r.Having.param {
+			params = append(params, r.Having.param...)
+		}
 	}
 
 	sql := fmt.Sprintf("SELECT COUNT(*) FROM %s %s%s%s", r.From.String(), where, groupBy, having)
@@ -169,9 +173,11 @@ func (u Update) Build() SqlStatement {
 		params = append(params, v)
 	}
 
-	if nil != u.Where && len(u.Where.param) > 0 {
+	if nil != u.Where {
 		where = " WHERE " + u.Where.where
-		params = append(params, u.Where.param...)
+		if nil != u.Where.param {
+			params = append(params, u.Where.param...)
+		}
 	}
 
 	if len(u.OrderBy) > 0 {
@@ -214,9 +220,11 @@ func (d Delete) Build() SqlStatement {
 		using = " USING " + t
 	}
 
-	if nil != d.Where && len(d.Where.param) > 0 {
+	if nil != d.Where {
 		where = " WHERE " + d.Where.where
-		params = d.Where.param
+		if nil != d.Where.param {
+			params = d.Where.param
+		}
 	}
 	if len(d.OrderBy) > 0 {
 		orderBy = " ORDER BY " + strings.Join(d.OrderBy, ",")
@@ -443,6 +451,22 @@ func NotBetween(field string, start interface{}, end interface{}) *WhereConditio
 	return &WhereCondition{
 		where: fmt.Sprintf("%s NOT BETWEEN ? AND ?", field),
 		param: []interface{}{start, end},
+	}
+}
+
+func IsNull(field string) *WhereCondition {
+	return &WhereCondition{
+		where: fmt.Sprintf("%s IS NULL", field),
+		param: nil,
+		err:   nil,
+	}
+}
+
+func IsNotNull(field string) *WhereCondition {
+	return &WhereCondition{
+		where: fmt.Sprintf("%s IS NOT NULL", field),
+		param: nil,
+		err:   nil,
 	}
 }
 
