@@ -425,6 +425,126 @@ func (s *svc) CreateMultiOnDupkey(data []map[string]interface{}, dupkey map[stri
 	return
 }
 
+func (s *svc) CreateMultiAny(data []interface{}) (num int64, err error) {
+	if s.newErr != nil {
+		err = s.newErr
+		return
+	}
+
+	num = int64(len(data))
+	if nil == data || 0 == num {
+		err = fmt.Errorf("param data of CreateMultiAny() is empty")
+		return
+	}
+
+	var (
+		fields    = s.GetTableFields()
+		query     = fmt.Sprintf("INSERT INTO `%s` (`%s`) VALUES ", s.table.tableName, strings.Join(fields, "`, `"))
+		allValues = make([]string, num)
+	)
+	for k, m := range data {
+		var (
+			holder []string
+			values []interface{}
+			vref   = reflect.ValueOf(m)
+		)
+		if vref.Type().Kind() == reflect.Ptr {
+			vref = vref.Elem()
+			if vref.Type().Kind() != reflect.Struct {
+				return 0, fmt.Errorf("CreateMultiAny param data element must be struct or ptr to struct")
+			}
+		}
+
+		for i := 0; i < vref.NumField(); i++ {
+			var val = vref.Field(i).Interface()
+			if sv, yes := val.(string); yes {
+				values = append(values, strings.ReplaceAll(strings.ReplaceAll(sv, "\\", "\\\\"), "'", "\\'"))
+			} else {
+				values = append(values, val)
+			}
+			holder = append(holder, "'%v'")
+		}
+
+		allValues[k] = fmt.Sprintf("("+strings.Join(holder, ",")+")", values...)
+	}
+
+	query = query + strings.Join(allValues, ",")
+
+	if s.service.in {
+		_, err = s.service.tx.Exec(query)
+	} else {
+		_, err = s.conn.Exec(query)
+	}
+	if err != nil {
+		return 0, err
+	}
+	return
+}
+
+func (s *svc) CreateMultiAnyOnDupkey(data []interface{}, dupkey map[string]string) (num int64, err error) {
+	if s.newErr != nil {
+		err = s.newErr
+		return
+	}
+
+	num = int64(len(data))
+	if nil == data || 0 == num {
+		err = fmt.Errorf("param data of CreateMultiAny() is empty")
+		return
+	}
+
+	var (
+		fields    = s.GetTableFields()
+		query     = fmt.Sprintf("INSERT INTO `%s` (`%s`) VALUES ", s.table.tableName, strings.Join(fields, "`, `"))
+		allValues = make([]string, num)
+	)
+	for k, m := range data {
+		var (
+			holder []string
+			values []interface{}
+			vref   = reflect.ValueOf(m)
+		)
+		if vref.Type().Kind() == reflect.Ptr {
+			vref = vref.Elem()
+			if vref.Type().Kind() != reflect.Struct {
+				return 0, fmt.Errorf("CreateMultiAny param data element must be struct or ptr to struct")
+			}
+		}
+
+		for i := 0; i < vref.NumField(); i++ {
+			var val = vref.Field(i).Interface()
+			if sv, yes := val.(string); yes {
+				values = append(values, strings.ReplaceAll(strings.ReplaceAll(sv, "\\", "\\\\"), "'", "\\'"))
+			} else {
+				values = append(values, val)
+			}
+			holder = append(holder, "'%v'")
+		}
+
+		allValues[k] = fmt.Sprintf("("+strings.Join(holder, ",")+")", values...)
+	}
+
+	query = query + strings.Join(allValues, ",")
+
+	if nil != dupkey {
+		var udk []string
+		for k, v := range dupkey {
+			udk = append(udk, fmt.Sprintf("%s=%s", k, strings.ReplaceAll(strings.ReplaceAll(v, "\\", "\\\\"), "'", "\\'")))
+		}
+		query = query + fmt.Sprintf(" ON DUPLICATE KEY UPDATE %s", strings.Join(udk, ","))
+	}
+	println(query)
+	if s.service.in {
+		_, err = s.service.tx.Exec(query)
+	} else {
+		_, err = s.conn.Exec(query)
+	}
+	if err != nil {
+		return 0, err
+	}
+	return
+}
+
 func (s *svc) Update() (int64, error) {
 	if s.newErr != nil {
 		return 0, s.newErr
@@ -1182,7 +1302,7 @@ func (s *svc) getTargetMdbFields(target interface{}) (fields []string, err error
 
 	for i := 0; i < e.NumField(); i++ {
 		f := e.Field(i)
-		tag := f.Tag.Get("mdb")
+		tag := f.Tag.Get(mdb.STRUCT_TAG)
 		if tag != "" {
 			fields = append(fields, tag)
 		}
