@@ -18,8 +18,8 @@ const (
 )
 
 var (
-	svcerInst  *Servicer
-	onceNewSvc sync.Once
+	servicerInst    *Servicer
+	onceNewServicer sync.Once
 )
 
 type table struct {
@@ -33,6 +33,7 @@ type table struct {
 	primaryField reflect.StructField
 }
 
+// Servicer
 type Servicer struct {
 	db     *mdb.DB
 	tables []*table
@@ -40,13 +41,13 @@ type Servicer struct {
 
 func NewServicer(db *mdb.DB) *Servicer {
 	var first = false
-	onceNewSvc.Do(func() {
+	onceNewServicer.Do(func() {
 		first = true
-		svcerInst = &Servicer{db: db}
+		servicerInst = &Servicer{db: db}
 	})
 
 	if first {
-		return svcerInst
+		return servicerInst
 	} else {
 		return nil
 	}
@@ -70,6 +71,7 @@ func (s *Servicer) New() *Service {
 	}
 }
 
+// Service
 type Service struct {
 	db     *mdb.DB
 	conn   *mdb.Conn
@@ -140,9 +142,6 @@ func (s *Service) InTransaction() bool {
 }
 
 func (s *Service) Commit() error {
-	if s.err != nil {
-		return s.err
-	}
 	if !s.in {
 		return nil
 	}
@@ -154,9 +153,6 @@ func (s *Service) Commit() error {
 }
 
 func (s *Service) Rollback() error {
-	if s.err != nil {
-		return s.err
-	}
 	if !s.in {
 		return nil
 	}
@@ -171,7 +167,7 @@ func (s *Service) Rollback() error {
 // the target can be nil; otherwise target must be ptr to struct.
 func (s *Service) New(target interface{}) *svc {
 	if s.err != nil {
-		return &svc{newErr: s.err}
+		return &svc{err: s.err}
 	}
 
 	var (
@@ -181,8 +177,8 @@ func (s *Service) New(target interface{}) *svc {
 	)
 	if nil != target {
 		dbt, typ, err = s.loadTableByTarget(target)
-		if err != nil {
-			return &svc{newErr: err}
+		if nil != err {
+			return &svc{err: err}
 		}
 	}
 
@@ -192,7 +188,7 @@ func (s *Service) New(target interface{}) *svc {
 		table:      dbt,
 		target:     target,
 		targetType: typ,
-		newErr:     nil,
+		err:        nil,
 	}
 }
 
@@ -200,9 +196,8 @@ func (s *Service) loadTableByTarget(target interface{}) (*table, reflect.Type, e
 	var (
 		targetType = reflect.TypeOf(target)
 		structName = targetType.String()
+		dbtable    = s.loadTableByName(structName)
 	)
-
-	dbtable := s.loadTableByName(structName)
 	if dbtable == nil {
 		return nil, nil, fmt.Errorf("not found target '%s' in table register", structName)
 	}
@@ -218,18 +213,20 @@ func (s *Service) loadTableByName(structName string) *table {
 	return nil
 }
 
+// svc
 type svc struct {
 	conn       *mdb.Conn
 	service    *Service
 	table      *table
 	target     interface{}
 	targetType reflect.Type
-	newErr     error
+	err        error
 }
 
 func (s *svc) Create() error {
-	if s.newErr != nil {
-		return s.newErr
+	if s.err != nil {
+		s.service.Rollback()
+		return s.err
 	}
 
 	var (
@@ -247,6 +244,7 @@ func (s *svc) Create() error {
 		res, err = s.conn.Insert(insert).Exec()
 	}
 	if err != nil {
+		s.service.Rollback()
 		return err
 	}
 
@@ -256,8 +254,9 @@ func (s *svc) Create() error {
 }
 
 func (s *svc) CreateOnDupkey(dupkey map[string]string) error {
-	if s.newErr != nil {
-		return s.newErr
+	if s.err != nil {
+		s.service.Rollback()
+		return s.err
 	}
 
 	var (
@@ -276,6 +275,7 @@ func (s *svc) CreateOnDupkey(dupkey map[string]string) error {
 		res, err = s.conn.Insert(insert).Exec()
 	}
 	if err != nil {
+		s.service.Rollback()
 		return err
 	}
 
@@ -285,13 +285,15 @@ func (s *svc) CreateOnDupkey(dupkey map[string]string) error {
 }
 
 func (s *svc) CreateMulti(data []map[string]interface{}) (num int64, err error) {
-	if s.newErr != nil {
-		err = s.newErr
+	if s.err != nil {
+		s.service.Rollback()
+		err = s.err
 		return
 	}
 
 	num = int64(len(data))
 	if nil == data || 0 == num {
+		s.service.Rollback()
 		err = fmt.Errorf("param data of CreateMulti() is empty")
 		return
 	}
@@ -322,7 +324,6 @@ func (s *svc) CreateMulti(data []map[string]interface{}) (num int64, err error) 
 
 		allValues[k] = fmt.Sprintf("("+strings.Join(holder, ",")+")", values...)
 	}
-
 	query = query + strings.Join(allValues, ",")
 
 	if s.service.in {
@@ -331,49 +332,22 @@ func (s *svc) CreateMulti(data []map[string]interface{}) (num int64, err error) 
 		_, err = s.conn.Exec(query)
 	}
 	if err != nil {
+		s.service.Rollback()
 		return 0, err
 	}
 	return
-
-	/*if s.service.in {
-		stmt := s.service.tx.Prepare(query)
-		var values []string
-		for _, m := range data {
-			var vals []any
-			for _, f := range fields {
-				vals = append(vals, m[f])
-			}
-
-			if _, err = stmt.Exec(values...); err != nil {
-				return
-			}
-		}
-	} else {
-		tx := s.conn.Begin()
-		stmt := tx.Prepare(query)
-		for _, m := range data {
-			var values []any
-			for _, f := range fields {
-				values = append(values, m[f])
-			}
-
-			if _, err = stmt.Exec(values...); err != nil {
-				tx.Rollback()
-				return
-			}
-		}
-		tx.Commit()
-	}*/
 }
 
 func (s *svc) CreateMultiOnDupkey(data []map[string]interface{}, dupkey map[string]string) (num int64, err error) {
-	if s.newErr != nil {
-		err = s.newErr
+	if s.err != nil {
+		s.service.Rollback()
+		err = s.err
 		return
 	}
 
 	num = int64(len(data))
 	if nil == data || 0 == num {
+		s.service.Rollback()
 		err = fmt.Errorf("param data of CreateMulti() is empty")
 		return
 	}
@@ -420,19 +394,22 @@ func (s *svc) CreateMultiOnDupkey(data []map[string]interface{}, dupkey map[stri
 		_, err = s.conn.Exec(query)
 	}
 	if err != nil {
+		s.service.Rollback()
 		return 0, err
 	}
 	return
 }
 
 func (s *svc) CreateMultiAny(data []interface{}) (num int64, err error) {
-	if s.newErr != nil {
-		err = s.newErr
+	if s.err != nil {
+		s.service.Rollback()
+		err = s.err
 		return
 	}
 
 	num = int64(len(data))
 	if nil == data || 0 == num {
+		s.service.Rollback()
 		err = fmt.Errorf("param data of CreateMultiAny() is empty")
 		return
 	}
@@ -451,6 +428,7 @@ func (s *svc) CreateMultiAny(data []interface{}) (num int64, err error) {
 		if vref.Type().Kind() == reflect.Ptr {
 			vref = vref.Elem()
 			if vref.Type().Kind() != reflect.Struct {
+				s.service.Rollback()
 				return 0, fmt.Errorf("CreateMultiAny param data element must be struct or ptr to struct")
 			}
 		}
@@ -476,19 +454,22 @@ func (s *svc) CreateMultiAny(data []interface{}) (num int64, err error) {
 		_, err = s.conn.Exec(query)
 	}
 	if err != nil {
+		s.service.Rollback()
 		return 0, err
 	}
 	return
 }
 
 func (s *svc) CreateMultiAnyOnDupkey(data []interface{}, dupkey map[string]string) (num int64, err error) {
-	if s.newErr != nil {
-		err = s.newErr
+	if s.err != nil {
+		s.service.Rollback()
+		err = s.err
 		return
 	}
 
 	num = int64(len(data))
 	if nil == data || 0 == num {
+		s.service.Rollback()
 		err = fmt.Errorf("param data of CreateMultiAny() is empty")
 		return
 	}
@@ -507,6 +488,7 @@ func (s *svc) CreateMultiAnyOnDupkey(data []interface{}, dupkey map[string]strin
 		if vref.Type().Kind() == reflect.Ptr {
 			vref = vref.Elem()
 			if vref.Type().Kind() != reflect.Struct {
+				s.service.Rollback()
 				return 0, fmt.Errorf("CreateMultiAny param data element must be struct or ptr to struct")
 			}
 		}
@@ -540,14 +522,16 @@ func (s *svc) CreateMultiAnyOnDupkey(data []interface{}, dupkey map[string]strin
 		_, err = s.conn.Exec(query)
 	}
 	if err != nil {
+		s.service.Rollback()
 		return 0, err
 	}
 	return
 }
 
 func (s *svc) Update() (int64, error) {
-	if s.newErr != nil {
-		return 0, s.newErr
+	if s.err != nil {
+		s.service.Rollback()
+		return 0, s.err
 	}
 
 	var (
@@ -566,15 +550,22 @@ func (s *svc) Update() (int64, error) {
 		res, err = s.conn.Update(update).Exec()
 	}
 	if err != nil {
+		s.service.Rollback()
 		return 0, err
 	}
 
-	return res.RowsAffected()
+	if n, e := res.RowsAffected(); e != nil {
+		s.service.Rollback()
+		return n, e
+	} else {
+		return n, nil
+	}
 }
 
 func (s *svc) UpdateByPrimaryKey(value interface{}, data map[string]interface{}) (int64, error) {
-	if s.newErr != nil {
-		return 0, s.newErr
+	if s.err != nil {
+		s.service.Rollback()
+		return 0, s.err
 	}
 
 	var (
@@ -592,15 +583,22 @@ func (s *svc) UpdateByPrimaryKey(value interface{}, data map[string]interface{})
 		res, err = s.conn.Update(update).Exec()
 	}
 	if err != nil {
+		s.service.Rollback()
 		return 0, err
 	}
 
-	return res.RowsAffected()
+	if n, e := res.RowsAffected(); e != nil {
+		s.service.Rollback()
+		return n, e
+	} else {
+		return n, nil
+	}
 }
 
 func (s *svc) UpdateByPrimaryKeys(values []interface{}, data map[string]interface{}) (int64, error) {
-	if s.newErr != nil {
-		return 0, s.newErr
+	if s.err != nil {
+		s.service.Rollback()
+		return 0, s.err
 	}
 
 	var (
@@ -618,15 +616,22 @@ func (s *svc) UpdateByPrimaryKeys(values []interface{}, data map[string]interfac
 		res, err = s.conn.Update(update).Exec()
 	}
 	if err != nil {
+		s.service.Rollback()
 		return 0, err
 	}
 
-	return res.RowsAffected()
+	if n, e := res.RowsAffected(); e != nil {
+		s.service.Rollback()
+		return n, e
+	} else {
+		return n, nil
+	}
 }
 
 func (s *svc) UpdateByField(field string, value interface{}, data map[string]interface{}) (int64, error) {
-	if s.newErr != nil {
-		return 0, s.newErr
+	if s.err != nil {
+		s.service.Rollback()
+		return 0, s.err
 	}
 
 	var (
@@ -644,15 +649,22 @@ func (s *svc) UpdateByField(field string, value interface{}, data map[string]int
 		res, err = s.conn.Update(update).Exec()
 	}
 	if err != nil {
+		s.service.Rollback()
 		return 0, err
 	}
 
-	return res.RowsAffected()
+	if n, e := res.RowsAffected(); e != nil {
+		s.service.Rollback()
+		return n, e
+	} else {
+		return n, nil
+	}
 }
 
 func (s *svc) UpdateByWhere(where *msql.WhereCondition, data map[string]interface{}) (int64, error) {
-	if s.newErr != nil {
-		return 0, s.newErr
+	if s.err != nil {
+		s.service.Rollback()
+		return 0, s.err
 	}
 
 	var (
@@ -670,15 +682,22 @@ func (s *svc) UpdateByWhere(where *msql.WhereCondition, data map[string]interfac
 		res, err = s.conn.Update(update).Exec()
 	}
 	if err != nil {
+		s.service.Rollback()
 		return 0, err
 	}
 
-	return res.RowsAffected()
+	if n, e := res.RowsAffected(); e != nil {
+		s.service.Rollback()
+		return n, e
+	} else {
+		return n, nil
+	}
 }
 
 func (s *svc) Delete() (int64, error) {
-	if s.newErr != nil {
-		return 0, s.newErr
+	if s.err != nil {
+		s.service.Rollback()
+		return 0, s.err
 	}
 
 	var (
@@ -695,15 +714,22 @@ func (s *svc) Delete() (int64, error) {
 		res, err = s.conn.Delete(del).Exec()
 	}
 	if err != nil {
+		s.service.Rollback()
 		return 0, err
 	}
 
-	return res.RowsAffected()
+	if n, e := res.RowsAffected(); e != nil {
+		s.service.Rollback()
+		return n, e
+	} else {
+		return n, nil
+	}
 }
 
 func (s *svc) DeleteByPrimaryKey(value interface{}) (int64, error) {
-	if s.newErr != nil {
-		return 0, s.newErr
+	if s.err != nil {
+		s.service.Rollback()
+		return 0, s.err
 	}
 
 	var (
@@ -720,15 +746,22 @@ func (s *svc) DeleteByPrimaryKey(value interface{}) (int64, error) {
 		res, err = s.conn.Delete(del).Exec()
 	}
 	if err != nil {
+		s.service.Rollback()
 		return 0, err
 	}
 
-	return res.RowsAffected()
+	if n, e := res.RowsAffected(); e != nil {
+		s.service.Rollback()
+		return n, e
+	} else {
+		return n, nil
+	}
 }
 
 func (s *svc) DeleteByPrimaryKeys(values []interface{}) (int64, error) {
-	if s.newErr != nil {
-		return 0, s.newErr
+	if s.err != nil {
+		s.service.Rollback()
+		return 0, s.err
 	}
 
 	var (
@@ -745,15 +778,22 @@ func (s *svc) DeleteByPrimaryKeys(values []interface{}) (int64, error) {
 		res, err = s.conn.Delete(del).Exec()
 	}
 	if err != nil {
+		s.service.Rollback()
 		return 0, err
 	}
 
-	return res.RowsAffected()
+	if n, e := res.RowsAffected(); e != nil {
+		s.service.Rollback()
+		return n, e
+	} else {
+		return n, nil
+	}
 }
 
 func (s *svc) DeleteByField(field string, value interface{}) (int64, error) {
-	if s.newErr != nil {
-		return 0, s.newErr
+	if s.err != nil {
+		s.service.Rollback()
+		return 0, s.err
 	}
 
 	var (
@@ -770,15 +810,22 @@ func (s *svc) DeleteByField(field string, value interface{}) (int64, error) {
 		res, err = s.conn.Delete(del).Exec()
 	}
 	if err != nil {
+		s.service.Rollback()
 		return 0, err
 	}
 
-	return res.RowsAffected()
+	if n, e := res.RowsAffected(); e != nil {
+		s.service.Rollback()
+		return n, e
+	} else {
+		return n, nil
+	}
 }
 
 func (s *svc) DeleteByWhere(where *msql.WhereCondition) (int64, error) {
-	if s.newErr != nil {
-		return 0, s.newErr
+	if s.err != nil {
+		s.service.Rollback()
+		return 0, s.err
 	}
 
 	var (
@@ -795,15 +842,21 @@ func (s *svc) DeleteByWhere(where *msql.WhereCondition) (int64, error) {
 		res, err = s.conn.Delete(del).Exec()
 	}
 	if err != nil {
+		s.service.Rollback()
 		return 0, err
 	}
 
-	return res.RowsAffected()
+	if n, e := res.RowsAffected(); e != nil {
+		s.service.Rollback()
+		return n, e
+	} else {
+		return n, nil
+	}
 }
 
 func (s *svc) Count(where *msql.WhereCondition, groupBy []string) (int64, error) {
-	if s.newErr != nil {
-		return 0, s.newErr
+	if s.err != nil {
+		return 0, s.err
 	}
 
 	var (
@@ -832,8 +885,8 @@ func (s *svc) Has(where *msql.WhereCondition, groupBy []string) (bool, error) {
 }
 
 func (s *svc) HasByPrimary(primaryVal interface{}) (bool, error) {
-	if s.newErr != nil {
-		return false, s.newErr
+	if s.err != nil {
+		return false, s.err
 	}
 
 	var (
@@ -854,8 +907,8 @@ func (s *svc) HasByPrimary(primaryVal interface{}) (bool, error) {
 }
 
 func (s *svc) Load(primaryVal interface{}, with ...string) error {
-	if s.newErr != nil {
-		return s.newErr
+	if s.err != nil {
+		return s.err
 	}
 
 	err := s.conn.Select(msql.Select{
@@ -871,8 +924,8 @@ func (s *svc) Load(primaryVal interface{}, with ...string) error {
 }
 
 func (s *svc) LoadOne(where *msql.WhereCondition, orderBy []string, with ...string) error {
-	if s.newErr != nil {
-		return s.newErr
+	if s.err != nil {
+		return s.err
 	}
 
 	err := s.conn.Select(msql.Select{
@@ -890,11 +943,11 @@ func (s *svc) LoadOne(where *msql.WhereCondition, orderBy []string, with ...stri
 }
 
 func (s *svc) LoadTarget(target interface{}, primaryVal interface{}, with ...string) error {
-	if s.newErr != nil {
-		return s.newErr
+	if s.err != nil {
+		return s.err
 	}
 
-	fields, err := s.getTargetMdbFields(target)
+	fields, err := s.getTargetFields(target)
 	if err != nil {
 		return err
 	}
@@ -912,11 +965,11 @@ func (s *svc) LoadTarget(target interface{}, primaryVal interface{}, with ...str
 }
 
 func (s *svc) LoadOneTarget(target interface{}, where *msql.WhereCondition, orderBy []string, with ...string) error {
-	if s.newErr != nil {
-		return s.newErr
+	if s.err != nil {
+		return s.err
 	}
 
-	fields, err := s.getTargetMdbFields(target)
+	fields, err := s.getTargetFields(target)
 	if err != nil {
 		return err
 	}
@@ -1151,8 +1204,8 @@ func (s *svc) loadTargetWith(target interface{}, with ...string) error {
 // msql.Between, msql.NotBetween to generate.
 // or use nil mean no WhereCondition
 func (s *svc) LoadAll(where *msql.WhereCondition, orderBy []string) ([]interface{}, error) {
-	if s.newErr != nil {
-		return nil, s.newErr
+	if s.err != nil {
+		return nil, s.err
 	}
 
 	if nil == orderBy {
@@ -1171,8 +1224,8 @@ func (s *svc) LoadAll(where *msql.WhereCondition, orderBy []string) ([]interface
 // msql.Between, msql.NotBetween to generate.
 // or use nil mean no WhereCondition
 func (s *svc) LoadList(where *msql.WhereCondition, orderBy []string, limit, offset uint64) ([]interface{}, error) {
-	if s.newErr != nil {
-		return nil, s.newErr
+	if s.err != nil {
+		return nil, s.err
 	}
 
 	if nil == orderBy {
@@ -1189,8 +1242,8 @@ func (s *svc) LoadList(where *msql.WhereCondition, orderBy []string, limit, offs
 }
 
 func (s *svc) LoadCount(where *msql.WhereCondition, groupBy []string, having *msql.WhereCondition) (int64, error) {
-	if s.newErr != nil {
-		return 0, s.newErr
+	if s.err != nil {
+		return 0, s.err
 	}
 
 	var count int64
@@ -1209,8 +1262,8 @@ func (s *svc) LoadCount(where *msql.WhereCondition, groupBy []string, having *ms
 }
 
 func (s *svc) LoadPaginator(selection *msql.Select, curPage, pageSize int64) (*Paginator, error) {
-	if s.newErr != nil {
-		return nil, s.newErr
+	if s.err != nil {
+		return nil, s.err
 	}
 
 	if nil == selection {
@@ -1231,8 +1284,8 @@ func (s *svc) LoadPaginator(selection *msql.Select, curPage, pageSize int64) (*P
 }
 
 func (s *svc) LoadPaginatorByWhere(where *msql.WhereCondition, curPage, pageSize int64, orderBy []string) (*Paginator, error) {
-	if s.newErr != nil {
-		return nil, s.newErr
+	if s.err != nil {
+		return nil, s.err
 	}
 
 	if nil == orderBy {
@@ -1288,7 +1341,7 @@ func (s *svc) getFieldValues() (fieldValues map[string]interface{}, targetValue 
 	return
 }
 
-func (s *svc) getTargetMdbFields(target interface{}) (fields []string, err error) {
+func (s *svc) getTargetFields(target interface{}) (fields []string, err error) {
 	t := reflect.TypeOf(target)
 	if t.Kind() != reflect.Ptr {
 		err = fmt.Errorf("target '%s' must be ptr to struct", t.String())
