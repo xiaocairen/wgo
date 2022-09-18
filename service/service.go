@@ -1220,6 +1220,28 @@ func (s *svc) LoadAll(where *msql.WhereCondition, orderBy []string) ([]interface
 	}).Query().ScanStructAll(s.target)
 }
 
+func (s *svc) LoadAllTarget(target interface{}, where *msql.WhereCondition, orderBy []string) ([]interface{}, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+
+	fields, err := s.getTargetFields(target)
+	if err != nil {
+		return nil, err
+	}
+
+	if nil == orderBy {
+		orderBy = msql.OrderBy(s.table.primaryKey + " DESC")
+	}
+
+	return s.conn.Select(msql.Select{
+		Select:  msql.Fields(fields...),
+		From:    msql.Table{Table: s.table.tableName},
+		Where:   where,
+		OrderBy: orderBy,
+	}).Query().ScanStructAll(target)
+}
+
 // param where use func msql.Where, msql.And, msql.Or, msql.In, msql.NotIn,
 // msql.Between, msql.NotBetween to generate.
 // or use nil mean no WhereCondition
