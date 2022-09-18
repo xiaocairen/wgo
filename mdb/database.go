@@ -668,10 +668,10 @@ func (r *Rows) ScanStructAll(in interface{}) ([]interface{}, error) {
 	var out = make([]interface{}, 0)
 	for r.rows.Next() {
 		tmp := reflect.New(ote).Interface()
-		ote := reflect.TypeOf(tmp).Elem()
-		ove := reflect.ValueOf(tmp).Elem()
-		if err := r.scanStruct(ote, ove, coltype, fields); err != nil {
-			return nil, err
+		rte := reflect.TypeOf(tmp).Elem()
+		rve := reflect.ValueOf(tmp).Elem()
+		if e := r.scanStruct(rte, rve, coltype, fields); e != nil {
+			return nil, e
 		}
 		out = append(out, tmp)
 	}

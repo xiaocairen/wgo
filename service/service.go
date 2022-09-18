@@ -1220,14 +1220,20 @@ func (s *svc) LoadAll(where *msql.WhereCondition, orderBy []string) ([]interface
 	}).Query().ScanStructAll(s.target)
 }
 
-func (s *svc) LoadAllTarget(target interface{}, where *msql.WhereCondition, orderBy []string) ([]interface{}, error) {
+func (s *svc) LoadAllTarget(target interface{}, where *msql.WhereCondition, orderBy []string, useTargetFields bool) ([]interface{}, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
 
-	fields, err := s.getTargetFields(target)
-	if err != nil {
-		return nil, err
+	var fields []string
+	if useTargetFields {
+		var err error
+		fields, err = s.getTargetFields(target)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		fields = s.table.tableFields
 	}
 
 	if nil == orderBy {
