@@ -942,14 +942,22 @@ func (s *svc) LoadOne(where *msql.WhereCondition, orderBy []string, with ...stri
 	return s.loadWith(with...)
 }
 
-func (s *svc) LoadTarget(target interface{}, primaryVal interface{}, with ...string) error {
+func (s *svc) LoadTarget(target interface{}, primaryVal interface{}, useTargetFields bool, with ...string) error {
 	if s.err != nil {
 		return s.err
 	}
 
-	fields, err := s.getTargetFields(target)
-	if err != nil {
-		return err
+	var (
+		fields []string
+		err    error
+	)
+	if useTargetFields {
+		fields, err = s.getTargetFields(target)
+		if err != nil {
+			return err
+		}
+	} else {
+		fields = s.table.tableFields
 	}
 
 	err = s.conn.Select(msql.Select{
@@ -964,14 +972,22 @@ func (s *svc) LoadTarget(target interface{}, primaryVal interface{}, with ...str
 	return s.loadTargetWith(target, with...)
 }
 
-func (s *svc) LoadOneTarget(target interface{}, where *msql.WhereCondition, orderBy []string, with ...string) error {
+func (s *svc) LoadOneTarget(target interface{}, where *msql.WhereCondition, orderBy []string, useTargetFields bool, with ...string) error {
 	if s.err != nil {
 		return s.err
 	}
 
-	fields, err := s.getTargetFields(target)
-	if err != nil {
-		return err
+	var (
+		fields []string
+		err    error
+	)
+	if useTargetFields {
+		fields, err = s.getTargetFields(target)
+		if err != nil {
+			return err
+		}
+	} else {
+		fields = s.table.tableFields
 	}
 
 	err = s.conn.Select(msql.Select{
