@@ -269,7 +269,7 @@ type Router struct {
 	register       *RouteRegister
 }
 
-func (r Router) GetRouter(method string, controller string, action string) (Router, error) {
+func (r Router) GetRouter(method string, controller string, action string) *Router {
 	var rns []*routeNamespace
 	switch strings.ToUpper(method) {
 	case GET:
@@ -283,17 +283,17 @@ func (r Router) GetRouter(method string, controller string, action string) (Rout
 	case "ANY":
 		rns = r.register.any
 	default:
-		return Router{}, fmt.Errorf("no router %s to %s:%s", method, controller, action)
+		return nil
 	}
 
 	for _, rn := range rns {
-		for _, r := range rn.routers {
-			if r.ControllerName == controller && r.Method.Name == action {
-				return *r, nil
+		for _, route := range rn.routers {
+			if route.ControllerName == controller && route.Method.Name == action {
+				return route
 			}
 		}
 	}
-	return Router{}, fmt.Errorf("no router %s to %s:%s", method, controller, action)
+	return nil
 }
 
 // --------------------------------------------------------------------------------
