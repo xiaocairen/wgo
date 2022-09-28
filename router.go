@@ -171,7 +171,7 @@ func (this *router) findRouter(rns *routeNamespace, req *http.Request, urlpathle
 	default:
 		routerThe = routelist[0]
 		parameters = paramlist[0]
-		for k, r := range routelist[1:] {
+		for k, r := range routelist {
 			if r.Pathlen > routerThe.Pathlen {
 				routerThe = r
 				parameters = paramlist[k]
