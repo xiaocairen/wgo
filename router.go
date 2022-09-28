@@ -37,68 +37,88 @@ func (this *router) init(chain []RouteControllerInjector) {
 	this.RouteCollection.call(this.RouteRegister)
 }
 
-func (this *router) getHandler(r *http.Request) (router Router, params []methodParam, err error) {
+func (this *router) getHandler(r *http.Request) (Router, []methodParam, error) {
+	var (
+		route  *Router
+		params []methodParam
+		err    error
+	)
 	switch r.Method {
 	case GET:
-		router, params, err = this.searchRoute(this.RouteRegister.get, r)
+		route, params, err = this.searchRoute(this.RouteRegister.get, r)
 		if err != nil {
-			router, params, err = this.searchRoute(this.RouteRegister.any, r)
+			route, params, err = this.searchRoute(this.RouteRegister.any, r)
 		}
-
 	case POST:
-		router, params, err = this.searchRoute(this.RouteRegister.post, r)
+		route, params, err = this.searchRoute(this.RouteRegister.post, r)
 		if err != nil {
-			router, params, err = this.searchRoute(this.RouteRegister.any, r)
+			route, params, err = this.searchRoute(this.RouteRegister.any, r)
 		}
-
 	case PUT:
-		router, params, err = this.searchRoute(this.RouteRegister.put, r)
-
+		route, params, err = this.searchRoute(this.RouteRegister.put, r)
 	case DELETE:
-		router, params, err = this.searchRoute(this.RouteRegister.delete, r)
-
+		route, params, err = this.searchRoute(this.RouteRegister.delete, r)
 	default:
 		err = fmt.Errorf("not support http method '%s'", r.Method)
 	}
-	return
+	return *route, params, err
 }
 
-func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (router Router, params []methodParam, err error) {
+func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (route *Router, params []methodParam, err error) {
 	if 0 == len(routes) {
 		err = RouteNotFoundError{path: req.RequestURI}
 		return
 	}
 
 	var (
-		routeIt *routeNamespace
-		routeSp *routeNamespace
-		domain  = this.parseHost(req)
+		urlpathlen          = len(req.URL.Path)
+		domain, isIpOrLocal = this.parseHost(req)
 	)
-	for key, rns := range routes {
-		if strings.Contains(domain, rns.subdomain+".") {
-			routeIt = routes[key]
-			break
-		} else if rns.subdomain == "*" {
-			routeSp = routes[key]
+	if isIpOrLocal {
+		for _, rns := range routes {
+			route, params, err = this.findRouter(rns, req, urlpathlen)
+			if nil == err && nil != route {
+				return
+			}
 		}
-	}
-	if nil == routeIt {
-		if nil == routeSp {
-			err = RouteNotFoundError{path: req.Host + req.RequestURI}
-			return
-		}
-		routeIt = routeSp
-	}
+	} else {
+		var (
+			routeIt *routeNamespace
+			routeSp *routeNamespace
+		)
 
+		for _, rns := range routes {
+			if strings.Contains(domain, rns.subdomain+".") {
+				routeIt = rns
+				break
+			} else if rns.subdomain == "*" {
+				routeSp = rns
+			}
+		}
+		if nil == routeIt {
+			if nil == routeSp {
+				err = RouteNotFoundError{path: req.Host + req.RequestURI}
+				return
+			}
+			routeIt = routeSp
+		}
+
+		route, params, err = this.findRouter(routeIt, req, urlpathlen)
+	}
+	return
+}
+
+func (this *router) findRouter(rns *routeNamespace, req *http.Request, urlpathlen int) (*Router, []methodParam, error) {
 	var (
-		routerall  *Router
-		urlpathlen = len(req.URL.Path)
-		routelist  = make([]*Router, 0)
-		paramlist  = make([][]string, 0)
+		routerThe *Router
+		routerAll *Router
+		params    []methodParam
+		routelist = make([]*Router, 0)
+		paramlist = make([][]string, 0)
 	)
-	for key, route := range routeIt.routers {
+	for key, route := range rns.routers {
 		if route.Path == req.URL.Path {
-			router = *route
+			routerThe = route
 			for _, mp := range route.MethodParams {
 				params = append(params, methodParam{
 					Name:        mp.Name,
@@ -110,11 +130,11 @@ func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (ro
 					StructValue: mp.StructValue,
 				})
 			}
-			return
+			return routerThe, params, nil
 		}
 
 		if route.Path == "/*" {
-			routerall = route
+			routerAll = route
 			continue
 		}
 
@@ -122,7 +142,7 @@ func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (ro
 			if route.PathRegexp.MatchString(req.URL.Path) {
 				values := route.PathRegexp.FindStringSubmatch(req.URL.Path)
 				paramlist = append(paramlist, values[1:])
-				routelist = append(routelist, routeIt.routers[key])
+				routelist = append(routelist, rns.routers[key])
 			}
 			continue
 		}
@@ -134,33 +154,33 @@ func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (ro
 		}
 
 		paramlist = append(paramlist, nil)
-		routelist = append(routelist, routeIt.routers[key])
+		routelist = append(routelist, rns.routers[key])
 	}
 
 	var parameters []string
 	switch len(routelist) {
 	case 0:
-		if nil == routerall {
-			err = RouteNotFoundError{path: req.Host + req.RequestURI}
+		if nil == routerAll {
+			return nil, nil, RouteNotFoundError{path: req.Host + req.RequestURI}
 		} else {
-			router = *routerall
+			routerThe = routerAll
 		}
 	case 1:
-		router = *routelist[0]
+		routerThe = routelist[0]
 		parameters = paramlist[0]
 	default:
 		for k, r := range routelist {
-			if r.Pathlen > router.Pathlen {
-				router = *r
+			if routerThe.Pathlen > routerThe.Pathlen {
+				routerThe = r
 				parameters = paramlist[k]
 			}
 		}
 	}
 
 	if nil != parameters {
-		for _, mp := range router.MethodParams {
+		for _, mp := range routerThe.MethodParams {
 			var found = false
-			for k, pp := range router.PathParams {
+			for k, pp := range routerThe.PathParams {
 				if mp.Name == pp {
 					found = true
 					params = append(params, methodParam{
@@ -189,7 +209,7 @@ func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (ro
 			}
 		}
 	} else {
-		for _, mp := range router.MethodParams {
+		for _, mp := range routerThe.MethodParams {
 			params = append(params, methodParam{
 				Name:        mp.Name,
 				Type:        mp.Type,
@@ -202,15 +222,15 @@ func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (ro
 		}
 	}
 
-	return
+	return routerThe, params, nil
 }
 
-func (this *router) parseHost(r *http.Request) string {
+func (this *router) parseHost(r *http.Request) (string, bool) {
 	reg := regexp.MustCompile(`^(?i:\d+\.\d+\.\d+\.\d+|localhost)(:\d+)?$`)
 	if reg.MatchString(r.Host) {
-		return "www.test.cn"
+		return "www.wgo.cn", true
 	}
-	return r.Host
+	return r.Host, false
 }
 
 func (this *router) getRouter(method string, controller string, action string) (Router, error) {

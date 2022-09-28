@@ -367,6 +367,7 @@ func (this *server) finally(res *HttpResponse, req *HttpRequest) {
 
 	var msg string
 	if this.app.debug {
+		// debug.PrintStack()
 		stacks := strings.Split(string(debug.Stack()), "\n")
 		var key int
 		for k, s := range stacks {
