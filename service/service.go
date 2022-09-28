@@ -424,9 +424,11 @@ func (s *svc) CreateMultiAny(data []interface{}) (num int64, err error) {
 			holder []string
 			values []interface{}
 			vref   = reflect.ValueOf(m)
+			tref   = reflect.TypeOf(m)
 		)
 		if vref.Type().Kind() == reflect.Ptr {
 			vref = vref.Elem()
+			tref = tref.Elem()
 			if vref.Type().Kind() != reflect.Struct {
 				s.service.Rollback()
 				return 0, fmt.Errorf("CreateMultiAny param data element must be struct or ptr to struct")
@@ -434,13 +436,15 @@ func (s *svc) CreateMultiAny(data []interface{}) (num int64, err error) {
 		}
 
 		for i := 0; i < vref.NumField(); i++ {
-			var val = vref.Field(i).Interface()
-			if sv, yes := val.(string); yes {
-				values = append(values, strings.ReplaceAll(strings.ReplaceAll(sv, "\\", "\\\\"), "'", "\\'"))
-			} else {
-				values = append(values, val)
+			if "" != tref.Field(i).Tag.Get(mdb.STRUCT_TAG) {
+				var val = vref.Field(i).Interface()
+				if sv, yes := val.(string); yes {
+					values = append(values, strings.ReplaceAll(strings.ReplaceAll(sv, "\\", "\\\\"), "'", "\\'"))
+				} else {
+					values = append(values, val)
+				}
+				holder = append(holder, "'%v'")
 			}
-			holder = append(holder, "'%v'")
 		}
 
 		allValues[k] = fmt.Sprintf("("+strings.Join(holder, ",")+")", values...)
@@ -484,9 +488,11 @@ func (s *svc) CreateMultiAnyOnDupkey(data []interface{}, dupkey map[string]strin
 			holder []string
 			values []interface{}
 			vref   = reflect.ValueOf(m)
+			tref   = reflect.TypeOf(m)
 		)
 		if vref.Type().Kind() == reflect.Ptr {
 			vref = vref.Elem()
+			tref = tref.Elem()
 			if vref.Type().Kind() != reflect.Struct {
 				s.service.Rollback()
 				return 0, fmt.Errorf("CreateMultiAny param data element must be struct or ptr to struct")
@@ -494,13 +500,15 @@ func (s *svc) CreateMultiAnyOnDupkey(data []interface{}, dupkey map[string]strin
 		}
 
 		for i := 0; i < vref.NumField(); i++ {
-			var val = vref.Field(i).Interface()
-			if sv, yes := val.(string); yes {
-				values = append(values, strings.ReplaceAll(strings.ReplaceAll(sv, "\\", "\\\\"), "'", "\\'"))
-			} else {
-				values = append(values, val)
+			if "" != tref.Field(i).Tag.Get(mdb.STRUCT_TAG) {
+				var val = vref.Field(i).Interface()
+				if sv, yes := val.(string); yes {
+					values = append(values, strings.ReplaceAll(strings.ReplaceAll(sv, "\\", "\\\\"), "'", "\\'"))
+				} else {
+					values = append(values, val)
+				}
+				holder = append(holder, "'%v'")
 			}
-			holder = append(holder, "'%v'")
 		}
 
 		allValues[k] = fmt.Sprintf("("+strings.Join(holder, ",")+")", values...)
