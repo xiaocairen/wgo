@@ -37,12 +37,7 @@ func (this *router) init(chain []RouteControllerInjector) {
 	this.RouteCollection.call(this.RouteRegister)
 }
 
-func (this *router) getHandler(r *http.Request) (Router, []methodParam, error) {
-	var (
-		route  *Router
-		params []methodParam
-		err    error
-	)
+func (this *router) getHandler(r *http.Request) (route *Router, params []methodParam, err error) {
 	switch r.Method {
 	case GET:
 		route, params, err = this.searchRoute(this.RouteRegister.get, r)
@@ -61,7 +56,7 @@ func (this *router) getHandler(r *http.Request) (Router, []methodParam, error) {
 	default:
 		err = fmt.Errorf("not support http method '%s'", r.Method)
 	}
-	return *route, params, err
+	return
 }
 
 func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (route *Router, params []methodParam, err error) {

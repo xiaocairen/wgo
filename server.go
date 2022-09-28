@@ -45,13 +45,13 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	cv := reflect.ValueOf(controller)
 	cve := cv.Elem()
 
-	cve.FieldByName("Router").Set(reflect.ValueOf(route))
+	cve.FieldByName("Router").Set(reflect.ValueOf(*route))
 	cve.FieldByName("Service").Set(reflect.ValueOf(svc))
 	cve.FieldByName("Request").Set(reflect.ValueOf(req))
 	cve.FieldByName("Response").Set(reflect.ValueOf(res))
 
 	for _, iface := range this.app.reqControllerInjectorChain {
-		iface.InjectRequestController(route, cve, svc)
+		iface.InjectRequestController(*route, cve, svc)
 	}
 
 	this.parseRequestParam(req, params)
@@ -298,7 +298,7 @@ func (this *server) callInterceptor(inp reflect.Value, params []reflect.Value) (
 	return res.Bool(), dat.Bytes()
 }
 
-func (this *server) render(w http.ResponseWriter, cv reflect.Value, router Router, params []methodParam) {
+func (this *server) render(w http.ResponseWriter, cv reflect.Value, router *Router, params []methodParam) {
 	if router.HasInit {
 		cv.MethodByName("Init").Call(nil)
 	}
