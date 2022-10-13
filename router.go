@@ -37,26 +37,49 @@ func (this *router) init(chain []RouteControllerInjector) {
 	this.RouteCollection.call(this.RouteRegister)
 }
 
-func (this *router) getHandler(r *http.Request) (route *Router, params []methodParam, err error) {
+func (this *router) getHandler(r *http.Request) (Router, []methodParam, error) {
 	switch r.Method {
 	case GET:
-		route, params, err = this.searchRoute(this.RouteRegister.get, r)
-		if err != nil {
-			route, params, err = this.searchRoute(this.RouteRegister.any, r)
+		route, params, err := this.searchRoute(this.RouteRegister.get, r)
+		if nil == err {
+			return *route, params, nil
+		}
+
+		route, params, err = this.searchRoute(this.RouteRegister.any, r)
+		if nil == err {
+			return *route, params, nil
+		} else {
+			return Router{}, nil, err
 		}
 	case POST:
-		route, params, err = this.searchRoute(this.RouteRegister.post, r)
-		if err != nil {
-			route, params, err = this.searchRoute(this.RouteRegister.any, r)
+		route, params, err := this.searchRoute(this.RouteRegister.post, r)
+		if nil == err {
+			return *route, params, nil
+		}
+
+		route, params, err = this.searchRoute(this.RouteRegister.any, r)
+		if nil == err {
+			return *route, params, nil
+		} else {
+			return Router{}, nil, err
 		}
 	case PUT:
-		route, params, err = this.searchRoute(this.RouteRegister.put, r)
+		route, params, err := this.searchRoute(this.RouteRegister.put, r)
+		if nil == err {
+			return *route, params, nil
+		} else {
+			return Router{}, nil, err
+		}
 	case DELETE:
-		route, params, err = this.searchRoute(this.RouteRegister.delete, r)
+		route, params, err := this.searchRoute(this.RouteRegister.delete, r)
+		if nil == err {
+			return *route, params, nil
+		} else {
+			return Router{}, nil, err
+		}
 	default:
-		err = fmt.Errorf("not support http method '%s'", r.Method)
+		return Router{}, nil, fmt.Errorf("not support http method '%s'", r.Method)
 	}
-	return
 }
 
 func (this *router) searchRoute(routes []*routeNamespace, req *http.Request) (route *Router, params []methodParam, err error) {

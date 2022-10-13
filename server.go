@@ -45,19 +45,19 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	cv := reflect.ValueOf(controller)
 	cve := cv.Elem()
 
-	cve.FieldByName("Router").Set(reflect.ValueOf(*route))
+	cve.FieldByName("Router").Set(reflect.ValueOf(route))
 	cve.FieldByName("Service").Set(reflect.ValueOf(svc))
 	cve.FieldByName("Request").Set(reflect.ValueOf(req))
 	cve.FieldByName("Response").Set(reflect.ValueOf(res))
 
 	for _, iface := range this.app.reqControllerInjectorChain {
-		iface.InjectRequestController(*route, cve, svc)
+		iface.InjectRequestController(route, cve, svc)
 	}
 
 	this.parseRequestParam(req, params)
 
 	if nil == route.interceptor {
-		this.render(w, cv, route, params)
+		this.render(w, cv, &route, params)
 	} else {
 		var (
 			result   bool
@@ -75,7 +75,7 @@ func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if !result {
 			w.Write(resData)
 		} else {
-			this.render(w, cv, route, params)
+			this.render(w, cv, &route, params)
 		}
 	}
 }
@@ -367,11 +367,11 @@ func (this *server) finally(res *HttpResponse, req *HttpRequest) {
 
 	var msg string
 	if this.app.debug {
-		// debug.PrintStack()
+		debug.PrintStack()
+
 		stacks := strings.Split(string(debug.Stack()), "\n")
 		var key int
 		for k, s := range stacks {
-			fmt.Printf("%d: %s\n", k, s)
 			if strings.Contains(s, "reflect.Value.call") {
 				key = k - 1
 				break
