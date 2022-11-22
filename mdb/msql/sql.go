@@ -169,8 +169,17 @@ func (u Update) Build() SqlStatement {
 	}
 
 	for k, v := range u.SetValues {
-		set = append(set, k+"=?")
-		params = append(params, v)
+		if vs, ok := v.(string); ok {
+			if strings.HasPrefix(vs, k+"+") || strings.HasPrefix(vs, k+"-") || strings.HasPrefix(vs, k+" +") || strings.HasPrefix(vs, k+" -") {
+				set = append(set, k+"="+vs)
+			} else {
+				set = append(set, k+"=?")
+				params = append(params, v)
+			}
+		} else {
+			set = append(set, k+"=?")
+			params = append(params, v)
+		}
 	}
 
 	if nil != u.Where {
