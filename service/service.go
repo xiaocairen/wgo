@@ -13,8 +13,8 @@ import (
 const (
 	MKEY        = "mkey"
 	FKEY        = "fkey"
-	ASSOC_TABLE = "table"
 	ASSOC_ORDER = "order"
+	//ASSOC_TABLE = "table"
 )
 
 var (

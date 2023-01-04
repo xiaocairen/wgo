@@ -29,14 +29,15 @@ func Run() {
 
 func NewTtableGenerater() *tableGenerater {
 	var (
-		user     = GetCmdOption("user", "root")
-		pass     = GetCmdOption("pass", "")
-		host     = GetCmdOption("host", "localhost")
-		port     = GetCmdOption("port", "3306")
-		dbname   = GetCmdOption("db", "")
-		tag      = GetCmdOption("tag", "mdb")
-		table    = GetCmdOption("table", "")
-		jsonType = GetCmdOption("jsonType", "0") // 0 同数据库字段名(小写加下划线) 1小写开头驼峰 2大写开头驼峰
+		user   = GetCmdOption("user", "root")
+		pass   = GetCmdOption("pass", "")
+		host   = GetCmdOption("host", "localhost")
+		port   = GetCmdOption("port", "3306")
+		dbname = GetCmdOption("db", "")
+		tag    = GetCmdOption("tag", "mdb")
+		table  = GetCmdOption("table", "")
+		// 0 同数据库字段名(小写加下划线) 1小写开头驼峰 2大写开头驼峰
+		jsonType = GetCmdOption("jsonType", "0")
 		yamlType = GetCmdOption("yamlType", "0")
 	)
 
