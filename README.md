@@ -1,1 +1,1 @@
-# wgo
+# a lightweight web framework
