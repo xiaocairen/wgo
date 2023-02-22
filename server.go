@@ -85,7 +85,7 @@ func (this *server) parseRequestParam(r *HttpRequest, params []methodParam) {
 	case GET:
 		for k, p := range params {
 			if p.IsStruct {
-				var qmap = make(map[string]interface{})
+				var qmap = make(map[string]any)
 				for i := 0; i < p.ParamType.NumField(); i++ {
 					var (
 						pt      = p.ParamType.Field(i)
@@ -123,7 +123,7 @@ func (this *server) parseRequestParam(r *HttpRequest, params []methodParam) {
 		if 0 == len(body) {
 			for k, p := range params {
 				if p.IsStruct {
-					var qmap = make(map[string]interface{})
+					var qmap = make(map[string]any)
 					for i := 0; i < p.ParamType.NumField(); i++ {
 						var (
 							pt      = p.ParamType.Field(i)
@@ -155,7 +155,7 @@ func (this *server) parseRequestParam(r *HttpRequest, params []methodParam) {
 			}
 		} else {
 			if strings.Contains(contentType, "application/json") {
-				var m = make(map[string]interface{})
+				var m = make(map[string]any)
 				json.Unmarshal(body, &m)
 				for k, p := range params {
 					if p.IsStruct {
@@ -179,7 +179,7 @@ func (this *server) parseRequestParam(r *HttpRequest, params []methodParam) {
 			} else if strings.Contains(contentType, "application/x-www-form-urlencoded") {
 				for k, p := range params {
 					if p.IsStruct {
-						var qmap = make(map[string]interface{})
+						var qmap = make(map[string]any)
 						for i := 0; i < p.ParamType.NumField(); i++ {
 							var (
 								pt      = p.ParamType.Field(i)
@@ -221,7 +221,7 @@ func (this *server) parseRequestParam(r *HttpRequest, params []methodParam) {
 		var contentType = r.GetHeader("Content-Type")
 		if strings.Contains(contentType, "application/json") {
 			var (
-				m    = make(map[string]interface{})
+				m    = make(map[string]any)
 				body = r.Body()
 			)
 			json.Unmarshal(body, &m)
@@ -242,7 +242,7 @@ func (this *server) parseRequestParam(r *HttpRequest, params []methodParam) {
 		} else if strings.Contains(contentType, "application/x-www-form-urlencoded") {
 			for k, p := range params {
 				if p.IsStruct {
-					var qmap = make(map[string]interface{})
+					var qmap = make(map[string]any)
 					for i := 0; i < p.ParamType.NumField(); i++ {
 						var (
 							pt      = p.ParamType.Field(i)
@@ -397,11 +397,11 @@ func (this *server) finally(res *HttpResponse, req *HttpRequest) {
 	if res.statusCode > 0 {
 		code = res.statusCode
 	}
-	b, _ := json.Marshal(map[string]interface{}{"code": code, "msg": msg})
+	b, _ := json.Marshal(map[string]any{"code": code, "msg": msg})
 	res.Writer.Write(b)
 }
 
-func (this *server) InjectRouteController(controller interface{}) {
+func (this *server) InjectRouteController(controller any) {
 	var (
 		objt = reflect.TypeOf(controller).Elem()
 		objv = reflect.ValueOf(controller).Elem()
@@ -490,9 +490,9 @@ func (this *server) assigTemplate(objt reflect.Type, objv reflect.Value, name st
 	dst.Set(src)
 }
 
-func convertParam2Value(value string, typ string) interface{} {
+func convertParam2Value(value string, typ string) any {
 	var (
-		val interface{}
+		val any
 		e   error
 	)
 	switch typ {
@@ -527,7 +527,7 @@ func convertParam2Value(value string, typ string) interface{} {
 	return val
 }
 
-func convertAny2Value(value interface{}, typ string) interface{} {
+func convertAny2Value(value any, typ string) any {
 	if nil == value {
 		switch typ {
 		case "int":
@@ -545,7 +545,7 @@ func convertAny2Value(value interface{}, typ string) interface{} {
 		}
 	}
 	var (
-		val interface{}
+		val any
 		e   error
 	)
 	switch typ {

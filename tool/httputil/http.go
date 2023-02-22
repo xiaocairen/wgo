@@ -66,7 +66,7 @@ func (r *Request) Post(url, body string) (*Response, error) {
 	return r.handleRequest()
 }
 
-func (r *Request) PostJSON(url string, data interface{}) (*Response, error) {
+func (r *Request) PostJSON(url string, data any) (*Response, error) {
 	r.method = "POST"
 	r.url = url
 

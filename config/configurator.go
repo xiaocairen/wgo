@@ -10,7 +10,7 @@ import (
 )
 
 type Configurator struct {
-	data map[string]interface{}
+	data map[string]any
 }
 
 func New(file string) *Configurator {
@@ -29,10 +29,10 @@ func New(file string) *Configurator {
 	return c
 }
 
-func (c *Configurator) Get(path string) (out interface{}, err error) {
+func (c *Configurator) Get(path string) (out any, err error) {
 	paths := strings.Split(path, ".")
 	var (
-		m map[string]interface{}
+		m map[string]any
 		n = len(paths)
 		f bool
 	)
@@ -50,9 +50,9 @@ func (c *Configurator) Get(path string) (out interface{}, err error) {
 	return
 }
 
-func (c *Configurator) GetStruct(path string, out interface{}) error {
+func (c *Configurator) GetStruct(path string, out any) error {
 	paths := strings.Split(path, ".")
-	m := make(map[string]interface{})
+	m := make(map[string]any)
 	if err := c.getMap(paths, c.data, &m); err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (c *Configurator) GetStruct(path string, out interface{}) error {
 	return json.Unmarshal(tmp, out)
 }
 
-func (c *Configurator) GetMap(path string, out *map[string]interface{}) error {
+func (c *Configurator) GetMap(path string, out *map[string]any) error {
 	paths := strings.Split(path, ".")
 	if err := c.getMap(paths, c.data, out); err != nil {
 		return err
@@ -75,7 +75,7 @@ func (c *Configurator) GetMap(path string, out *map[string]interface{}) error {
 func (c *Configurator) GetBool(path string, out *bool) error {
 	paths := strings.Split(path, ".")
 	var (
-		m   map[string]interface{}
+		m   map[string]any
 		n   = len(paths)
 		err error
 	)
@@ -104,7 +104,7 @@ func (c *Configurator) GetBool(path string, out *bool) error {
 func (c *Configurator) GetInt(path string, out *int) error {
 	paths := strings.Split(path, ".")
 	var (
-		m   map[string]interface{}
+		m   map[string]any
 		n   = len(paths)
 		err error
 	)
@@ -133,7 +133,7 @@ func (c *Configurator) GetInt(path string, out *int) error {
 func (c *Configurator) GetStr(path string, out *string) error {
 	paths := strings.Split(path, ".")
 	var (
-		m   map[string]interface{}
+		m   map[string]any
 		n   = len(paths)
 		err error
 	)
@@ -159,10 +159,10 @@ func (c *Configurator) GetStr(path string, out *string) error {
 	return nil
 }
 
-func (c *Configurator) GetSlice(path string, out *[]interface{}) error {
+func (c *Configurator) GetSlice(path string, out *[]any) error {
 	paths := strings.Split(path, ".")
 	var (
-		m   map[string]interface{}
+		m   map[string]any
 		n   = len(paths)
 		err error
 	)
@@ -179,7 +179,7 @@ func (c *Configurator) GetSlice(path string, out *[]interface{}) error {
 		return fmt.Errorf("not found key '%s'", path)
 	}
 
-	val, ok := v.([]interface{})
+	val, ok := v.([]any)
 	if !ok {
 		return fmt.Errorf("the value of key '%s' is not string", path)
 	}
@@ -188,13 +188,13 @@ func (c *Configurator) GetSlice(path string, out *[]interface{}) error {
 	return nil
 }
 
-func (c *Configurator) getMap(paths []string, in map[string]interface{}, out *map[string]interface{}) error {
+func (c *Configurator) getMap(paths []string, in map[string]any, out *map[string]any) error {
 	d, f := in[paths[0]]
 	if !f {
 		return fmt.Errorf("not found key '%s'", paths[0])
 	}
 
-	tmp, ok := d.(map[string]interface{})
+	tmp, ok := d.(map[string]any)
 	if !ok {
 		return fmt.Errorf("the value of key '%s' is not map", paths[0])
 	}
@@ -222,7 +222,7 @@ const (
 	UINT64_MAX = 18446744073709551615
 )
 
-func (c *Configurator) fillStruct(outType reflect.Type, outValue reflect.Value, name string, value interface{}) error {
+func (c *Configurator) fillStruct(outType reflect.Type, outValue reflect.Value, name string, value any) error {
 	var field reflect.StructField
 	if _, found := outType.FieldByName(name); !found {
 		for i := 0; i < outType.NumField(); i++ {

@@ -277,7 +277,7 @@ func (r HttpResponse) Send(body []byte) []byte {
 	}
 }
 
-func (r HttpResponse) SendJson(body interface{}) []byte {
+func (r HttpResponse) SendJson(body any) []byte {
 	j, e := json.Marshal(body)
 	if e != nil {
 		return []byte(e.Error())

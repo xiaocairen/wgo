@@ -276,11 +276,11 @@ func initLogger() {
 	log.SetOutput(f)
 }
 
-func parseDBConfig(dbc interface{}, dbcs *[]*mdb.DBConfig) error {
+func parseDBConfig(dbc any, dbcs *[]*mdb.DBConfig) error {
 	switch val := dbc.(type) {
-	case []interface{}:
+	case []any:
 		for _, v := range val {
-			m, ok := v.(map[string]interface{})
+			m, ok := v.(map[string]any)
 			if !ok {
 				return fmt.Errorf("database config must be []map[string]interface{}")
 			}
@@ -290,7 +290,7 @@ func parseDBConfig(dbc interface{}, dbcs *[]*mdb.DBConfig) error {
 			*dbcs = append(*dbcs, &c)
 		}
 
-	case map[string]interface{}:
+	case map[string]any:
 		if _, f := val["driver"]; f {
 			var c mdb.DBConfig
 			tool.StructFill(&val, &c)
@@ -300,9 +300,9 @@ func parseDBConfig(dbc interface{}, dbcs *[]*mdb.DBConfig) error {
 
 		if read, f := val["read"]; f {
 			switch rval := read.(type) {
-			case []interface{}:
+			case []any:
 				for _, v := range rval {
-					m, ok := v.(map[string]interface{})
+					m, ok := v.(map[string]any)
 					if !ok {
 						return fmt.Errorf("read database config must be []map[string]interface{}")
 					}
@@ -313,7 +313,7 @@ func parseDBConfig(dbc interface{}, dbcs *[]*mdb.DBConfig) error {
 					*dbcs = append(*dbcs, &c)
 				}
 
-			case map[string]interface{}:
+			case map[string]any:
 				var c mdb.DBConfig
 				tool.StructFill(&rval, &c)
 				c.ReadOrWrite = mdb.ONLY_READ
@@ -325,9 +325,9 @@ func parseDBConfig(dbc interface{}, dbcs *[]*mdb.DBConfig) error {
 		}
 		if write, f := val["write"]; f {
 			switch wval := write.(type) {
-			case []interface{}:
+			case []any:
 				for _, v := range wval {
-					m, ok := v.(map[string]interface{})
+					m, ok := v.(map[string]any)
 					if !ok {
 						return fmt.Errorf("write database config must be []map[string]interface{}")
 					}
@@ -338,7 +338,7 @@ func parseDBConfig(dbc interface{}, dbcs *[]*mdb.DBConfig) error {
 					*dbcs = append(*dbcs, &c)
 				}
 
-			case map[string]interface{}:
+			case map[string]any:
 				var c mdb.DBConfig
 				tool.StructFill(&wval, &c)
 				c.ReadOrWrite = mdb.ONLY_WRITE
@@ -356,7 +356,7 @@ func parseDBConfig(dbc interface{}, dbcs *[]*mdb.DBConfig) error {
 				return err
 			}
 
-			var data interface{}
+			var data any
 			if e := json.Unmarshal(res.Body, &data); e != nil {
 				return e
 			}

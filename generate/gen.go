@@ -125,7 +125,7 @@ type ` + structName + ` struct {
 			Type    string
 			Null    string
 			Key     string
-			Default interface{}
+			Default any
 			Extra   string
 		)
 
@@ -159,7 +159,7 @@ type fieldStruct struct {
 	TypeLen int
 }
 
-func (this *tableGenerater) genField(table, field, typ, null, key string, def interface{}, extra string) *fieldStruct {
+func (this *tableGenerater) genField(table, field, typ, null, key string, def any, extra string) *fieldStruct {
 	fs := &fieldStruct{}
 	fs.Name = tool.Underline2Camel(field)
 
