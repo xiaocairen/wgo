@@ -77,6 +77,7 @@ type Service struct {
 	conn   *mdb.Conn
 	tx     *mdb.Tx
 	in     bool
+	tc     int8
 	tables []*table
 	err    error
 }
@@ -129,12 +130,17 @@ func (s *Service) SelectDbHost(hostname string) {
 }
 
 func (s *Service) Begin() {
-	if s.err != nil || s.in {
+	if s.err != nil {
+		return
+	}
+	if s.in {
+		s.tc++
 		return
 	}
 
 	s.tx = s.conn.Begin()
 	s.in = true
+	s.tc = 1
 }
 
 func (s *Service) InTransaction() bool {
@@ -145,10 +151,15 @@ func (s *Service) Commit() error {
 	if !s.in {
 		return nil
 	}
+	if s.tc > 1 {
+		s.tc--
+		return nil
+	}
 
 	err := s.tx.Commit()
-	s.in = false
 	s.tx = nil
+	s.in = false
+	s.tc = 0
 	return err
 }
 
@@ -158,8 +169,9 @@ func (s *Service) Rollback() error {
 	}
 
 	err := s.tx.Rollback()
-	s.in = false
 	s.tx = nil
+	s.in = false
+	s.tc = 0
 	return err
 }
 
@@ -299,7 +311,7 @@ func (s *svc) CreateMulti(data []map[string]any) (num int64, err error) {
 	}
 
 	var fields []string
-	for k, _ := range data[0] {
+	for k := range data[0] {
 		fields = append(fields, k)
 	}
 
@@ -353,7 +365,7 @@ func (s *svc) CreateMultiOnDupkey(data []map[string]any, dupkey map[string]strin
 	}
 
 	var fields []string
-	for k, _ := range data[0] {
+	for k := range data[0] {
 		fields = append(fields, k)
 	}
 

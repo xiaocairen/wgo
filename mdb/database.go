@@ -726,7 +726,7 @@ func (r *Rows) scanStruct(ote reflect.Type, ove reflect.Value, coltype []*sql.Co
 			case "NullBool":
 				values[k] = new(sql.NullBool)
 			case "NullTime":
-				values[k] = new(sql.NullTime)
+				values[k] = new(string)
 			}
 		}
 	}
@@ -1466,6 +1466,91 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field *reflect.StructField,
 					}
 				}
 			}
+
+		case reflect.Struct:
+			var fieldType = field.Type.String()
+			fmt.Println("--->", field, valKind.String(), field.Type.String())
+			switch valKind {
+			case reflect.String:
+				if fieldType == "time.Time" {
+					if s, ok := value.(*string); ok {
+						if t, e := time.ParseInLocation(time.DateTime, *s, time.Local); e == nil {
+							org.Set(reflect.ValueOf(t))
+						} else if t, e = time.ParseInLocation(time.DateOnly, *s, time.Local); e == nil {
+							org.Set(reflect.ValueOf(t))
+						}
+					}
+				} else if fieldType == "mdb.JsonDate" {
+					if s, ok := value.(*string); ok {
+						var jsonDate JsonDate
+						jsonDate.UnmarshalJSON([]byte(*s))
+						org.Set(reflect.ValueOf(jsonDate))
+					}
+				} else if fieldType == "mdb.JsonDateTime" {
+					if s, ok := value.(*string); ok {
+						var jsonDateTime JsonDateTime
+						jsonDateTime.UnmarshalJSON([]byte(*s))
+						org.Set(reflect.ValueOf(jsonDateTime))
+					}
+				}
+			}
 		}
 	}
+}
+
+type JsonDate time.Time
+
+func (jd *JsonDate) UnmarshalJSON(data []byte) error {
+	var (
+		val  = string(data)
+		t, e = time.ParseInLocation(time.DateOnly, val, time.Local)
+	)
+	if e != nil {
+		t, e = time.ParseInLocation("2006/01/02", val, time.Local)
+	}
+
+	*jd = JsonDate(t)
+	return e
+}
+
+func (jd JsonDate) MarshalJSON() ([]byte, error) {
+	data := make([]byte, 0)
+	data = append(data, '"')
+	data = time.Time(jd).AppendFormat(data, time.DateOnly)
+	data = append(data, '"')
+	return data, nil
+}
+
+func (jd JsonDate) String() string {
+	return time.Time(jd).Format(time.DateOnly)
+}
+
+type JsonDateTime time.Time
+
+func (jdt *JsonDateTime) UnmarshalJSON(data []byte) error {
+	var (
+		val  = string(data)
+		t, e = time.ParseInLocation(time.DateTime, val, time.Local)
+	)
+	if e != nil {
+		t, e = time.ParseInLocation(time.RFC3339, val, time.Local)
+	}
+	if e != nil {
+		t, e = time.ParseInLocation("2006/01/02 15:04:05", val, time.Local)
+	}
+
+	*jdt = JsonDateTime(t)
+	return e
+}
+
+func (jdt JsonDateTime) MarshalJSON() ([]byte, error) {
+	data := make([]byte, 0)
+	data = append(data, '"')
+	data = time.Time(jdt).AppendFormat(data, time.DateTime)
+	data = append(data, '"')
+	return data, nil
+}
+
+func (jdt JsonDateTime) String() string {
+	return time.Time(jdt).Format(time.DateTime)
 }

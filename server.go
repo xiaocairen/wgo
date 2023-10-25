@@ -21,7 +21,7 @@ type server struct {
 	Router       *router
 }
 
-func (this server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (this *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	req := &HttpRequest{Request: r}
