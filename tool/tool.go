@@ -33,17 +33,11 @@ const (
 )
 
 func Bytes2String(b []byte) string {
-	return *(*string)(unsafe.Pointer(&b))
+	return unsafe.String(unsafe.SliceData(b), len(b))
 }
 
 func String2Bytes(s string) []byte {
-	sh := (*reflect.StringHeader)(unsafe.Pointer(&s))
-	bh := reflect.SliceHeader{
-		Data: sh.Data,
-		Len:  sh.Len,
-		Cap:  0,
-	}
-	return *(*[]byte)(unsafe.Pointer(&bh))
+	return unsafe.Slice(unsafe.StringData(s), len(s))
 }
 
 func MD5(p []byte) string {
