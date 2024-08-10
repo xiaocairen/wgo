@@ -640,7 +640,7 @@ func parseRouteController(controller any, action string, actParams [][]string, p
 					pos  = tlen - len(name)
 				)
 				if pos < 0 {
-					log.Panicf("type of param[%d] of method '%s:%s' occur error", i, rtc.String(), action)
+					log.Panicf("type of param[%d] of method '%s:%s' mismatch router", i, rtc.String(), action)
 				}
 				if actPt[pos:] != name {
 					log.Panicf("type of param[%d] of method '%s:%s' mismatch router", i, rtc.String(), action)
@@ -654,7 +654,7 @@ func parseRouteController(controller any, action string, actParams [][]string, p
 				pos  = tlen - len(name)
 			)
 			if pos < 0 {
-				log.Panicf("type of param[%d] of method '%s:%s' occur error", i, rtc.String(), action)
+				log.Panicf("type of param[%d] of method '%s:%s' mismatch router", i, rtc.String(), action)
 			}
 			if actPt[pos:] != name {
 				log.Panicf("type of param[%d] of method '%s:%s' mismatch router", i, rtc.String(), action)
