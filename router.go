@@ -635,16 +635,28 @@ func parseRouteController(controller any, action string, actParams [][]string, p
 		)
 		if pt.Kind() == reflect.Ptr {
 			if pt.Elem().Kind() == reflect.Struct {
-				name := pt.Elem().Name()
-				if actPt[tlen-len(name):] != name {
+				var (
+					name = pt.Elem().Name()
+					pos  = tlen - len(name)
+				)
+				if pos < 0 {
+					log.Panicf("type of param[%d] of method '%s:%s' occur error", i, rtc.String(), action)
+				}
+				if actPt[pos:] != name {
 					log.Panicf("type of param[%d] of method '%s:%s' mismatch router", i, rtc.String(), action)
 				}
 			} else if pt.Name() != actPt {
 				log.Panicf("type of param[%d] of method '%s:%s' mismatch router", i, rtc.String(), action)
 			}
 		} else if pt.Kind() == reflect.Struct {
-			name := pt.Name()
-			if actPt[tlen-len(name):] != name {
+			var (
+				name = pt.Name()
+				pos  = tlen - len(name)
+			)
+			if pos < 0 {
+				log.Panicf("type of param[%d] of method '%s:%s' occur error", i, rtc.String(), action)
+			}
+			if actPt[pos:] != name {
 				log.Panicf("type of param[%d] of method '%s:%s' mismatch router", i, rtc.String(), action)
 			}
 		} else if ("any" == actPt || "interface{}" == actPt) && "interface {}" == fmt.Sprintf("%s", pt) {
