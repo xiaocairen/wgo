@@ -3,7 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -15,7 +15,7 @@ type Configurator struct {
 
 func New(file string) *Configurator {
 	c := &Configurator{}
-	res, err := ioutil.ReadFile(file)
+	res, err := os.ReadFile(file)
 	if err != nil {
 		panic(err)
 	}
