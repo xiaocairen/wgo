@@ -1069,7 +1069,7 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field *reflect.StructField,
 				case "NullString":
 					v, _ := value.(*sql.NullString)
 					if v.Valid {
-						if i, e := strconv.Atoi(v.String); e == nil {
+						if i, e := strconv.ParseInt(v.String, 10, 64); e == nil {
 							org.Set(reflect.ValueOf(i))
 						}
 					}
@@ -1469,7 +1469,6 @@ func fillStruct(ote reflect.Type, ove reflect.Value, field *reflect.StructField,
 
 		case reflect.Struct:
 			var fieldType = field.Type.String()
-			fmt.Println("--->", field, valKind.String(), field.Type.String())
 			switch valKind {
 			case reflect.String:
 				if fieldType == "time.Time" {
